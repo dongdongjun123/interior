@@ -25,147 +25,20 @@ MAX_API_RETRIES = 5
 # thinking 예산(토큰): 공간추론 품질↑. 0=끄기, -1=동적. env GEMINI_THINKING_BUDGET로 조정.
 DEFAULT_THINKING_BUDGET = 4096
 
-ANALYSIS_PROMPT = """
-You are an architectural space analyst. Study this interior PHOTO (perspective view) and
-produce a layout report for drawing an accurate 2D TOP-DOWN floor plan.
+# 프롬프트는 코드에 하드코딩하지 않고 model1/prompts/*.txt에서 읽어온다.
+PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
-CRITICAL RULES:
-- Perspective photos hide walls. Only describe doors/walls you can actually see or strongly infer.
-- Do NOT invent extra interior walls, doorways, or rooms.
-- Distinguish floor-level seating (low chairs, zabuton) from standard dining chairs.
-- If chairs surround a low table, say "around table on four sides" — NOT "in a row".
 
-## A. Camera view (what the photo shows)
-- Which direction is the camera facing?
-- Which wall(s) have floor-to-ceiling windows (left / center / back / right in photo)?
-- Room shape and approximate width:depth ratio
+def load_prompt(name: str) -> str:
+    """prompts/<name>.txt 파일을 읽어 프롬프트 문자열로 반환 (앞뒤 공백 제거)."""
+    return (PROMPTS_DIR / f"{name}.txt").read_text(encoding="utf-8").strip()
 
-## B. Top-down layout (bird's-eye, required)
-Map the room as if looking straight down. For each major item list:
-- name (bed, low_table, shelf, plant, etc.)
-- against which wall OR free-standing in room center
-- position along that wall (left third / center / right third) or floor quadrant
-- approximate size relative to room (small / medium / large)
-- for grouped items (e.g. 4 chairs): exact arrangement relative to the table
 
-## C. Layout JSON (required, valid JSON only in this block)
-```json
-{
-  "room_shape": "rectangle",
-  "width_to_depth_ratio": 1.5,
-  "window_walls": ["west", "north"],
-  "visible_door": null,
-  "furniture": [
-    {
-      "id": "bed",
-      "type": "bed",
-      "against_wall": "east",
-      "along_wall": "back",
-      "size": "large"
-    },
-    {
-      "id": "low_table",
-      "type": "table",
-      "against_wall": null,
-      "floor_position": "west_center_near_windows",
-      "size": "medium"
-    },
-    {
-      "id": "floor_chairs",
-      "type": "floor_chair",
-      "count": 4,
-      "arrangement": "one on each side of low_table"
-    }
-  ]
-}
-```
-
-Replace values with your best estimate from the photo. Use null when not visible.
-""".strip()
-
-FLOORPLAN_PROMPT = """
-Create a clean 2D architectural floor plan (strict top-down bird's-eye view) based on
-the interior photograph and the spatial analysis below.
-
-STYLE REQUIREMENTS:
-- Black lines on white background, professional architectural blueprint style
-- Walls shown as thick solid lines
-- Doors marked with standard arc swing indicators
-- Windows marked on exterior walls
-- Major furniture shown as simple top-down icons or labeled rectangles
-- Room proportions must match the analysis
-- No 3D perspective, no photorealistic rendering — only a flat 2D plan
-
-SPATIAL ANALYSIS:
-{analysis}
-
-Generate one floor plan image that accurately reflects this room layout.
-""".strip()
-
-LAYOUT_DETAIL_PROMPT = """
-You are preparing a PRECISE top-down layout for SVG floor plan rendering.
-Study the interior photograph and the preliminary analysis below.
-
-Output ONLY one valid JSON object (no markdown, no commentary).
-
-Coordinate system (required):
-- Room inner bounds = 0–100 on both axes
-- Origin = top-left corner of the room
-- x increases to the right, y increases downward
-- Each object's x, y = top-left corner of its footprint (percent)
-- w, h = width and height as percent of room bounds
-
-JSON schema:
-{{
-  "version": 2,
-  "room": {{"shape": "rectangle", "width_to_depth_ratio": 1.5}},
-  "walls": [
-    {{"side": "north|south|east|west", "exterior": true, "windows": [{{"from_pct": 0, "to_pct": 100}}]}}
-  ],
-  "doors": [],
-  "objects": [
-    {{
-      "id": "bed",
-      "label": "Bed",
-      "type": "bed|table|floor_chair|shelf|plant|lamp|rug|other",
-      "x": 62, "y": 52, "w": 32, "h": 38,
-      "rotation_deg": 0,
-      "notes": "optional"
-    }}
-  ]
-}}
-
-Rules:
-- Include EVERY visible furniture/fixture from the photo
-- Floor-level chairs: one JSON object PER chair (not a single "4 chairs" entry)
-- Place chairs on four sides around low tables, matching the photo
-- Do NOT add doors, interior walls, or objects not visible in the photo
-- Use the preliminary analysis but correct it using the photograph
-- windows: only on walls that actually have glazing in the photo
-
-PRELIMINARY ANALYSIS:
-{analysis}
-""".strip()
-
-SVG_FLOORPLAN_PROMPT = """
-Draw a 2D TOP-DOWN architectural floor plan as SVG using the photograph and
-DETAILED LAYOUT JSON below.
-
-The JSON gives exact positions in percent (0–100). You MUST follow it:
-- viewBox width:height = room width_to_depth_ratio (e.g. ratio 1.5 → "0 0 600 900")
-- For each object: svg_x = viewBox_width * x/100, svg_y = viewBox_height * y/100
-  svg_w = viewBox_width * w/100, svg_h = viewBox_height * h/100
-- Draw walls on four sides; cut window gaps where JSON walls[].windows specify
-- Do NOT add doors unless doors[] is non-empty
-- Do NOT move, omit, or invent furniture
-- Floor chairs: small rectangles at their JSON coordinates
-- White background, black strokes, short labels from object.label
-
-Output ONLY valid SVG XML (<svg>...</svg>). No markdown.
-
-DETAILED LAYOUT JSON:
-{layout_json}
-""".strip()
+# 각 단계 프롬프트를 파일에서 로드 (플레이스홀더는 {analysis}/{layout_json} 형태, replace로 치환)
+ANALYSIS_PROMPT = load_prompt("analysis")
+FLOORPLAN_PROMPT = load_prompt("floorplan")
+LAYOUT_DETAIL_PROMPT = load_prompt("layout_detail")
+SVG_FLOORPLAN_PROMPT = load_prompt("svg_floorplan")
 
 
 def _load_env() -> None:
@@ -349,7 +222,7 @@ def generate_floorplan(
     model: str,
 ) -> Image.Image:
     # 분석 결과를 바탕으로 Gemini 이미지 모델로 평면도 그림 생성
-    prompt = FLOORPLAN_PROMPT.format(analysis=analysis)  # 분석 텍스트를 프롬프트에 삽입
+    prompt = FLOORPLAN_PROMPT.replace("{analysis}", analysis)  # 분석 텍스트를 프롬프트에 삽입
 
     def _run():
         response = client.models.generate_content(
@@ -401,7 +274,7 @@ def analyze_layout_detail(
     model: str,
 ) -> dict:
     # 사진+분석을 바탕으로 SVG 렌더링용 상세 좌표 JSON 생성
-    prompt = LAYOUT_DETAIL_PROMPT.format(analysis=analysis)  # 분석 텍스트를 프롬프트에 삽입
+    prompt = LAYOUT_DETAIL_PROMPT.replace("{analysis}", analysis)  # 분석 텍스트를 프롬프트에 삽입
 
     def _run():
         response = client.models.generate_content(
@@ -428,7 +301,7 @@ def generate_floorplan_svg(
     model: str,
 ) -> str:
     # 좌표 JSON을 바탕으로 Gemini가 SVG 평면도(텍스트)를 직접 생성
-    prompt = SVG_FLOORPLAN_PROMPT.format(layout_json=layout_json)  # 좌표 JSON을 프롬프트에 삽입
+    prompt = SVG_FLOORPLAN_PROMPT.replace("{layout_json}", layout_json)  # 좌표 JSON을 프롬프트에 삽입
 
     def _run():
         response = client.models.generate_content(
@@ -531,19 +404,7 @@ def _rule_svg_cache_valid(layout_path: Path, svg_path: Path) -> bool:
     return svg_path.stat().st_mtime >= layout_path.stat().st_mtime  # SVG가 layout보다 최신이어야 유효
 
 
-LAYOUT_REFINE_PROMPT = """
-You previously produced this TOP-DOWN layout JSON from the interior PHOTO.
-Look at the photo again and CORRECT the JSON where it disagrees with the photo:
-- wrong object type; missing important object; object that isn't in the photo
-- wrong center position x,y (0–1) given the perspective
-- wrong footprint size w,h (fraction of room)
-- wrong wall assignment or room.aspect_ratio (width÷depth)
-Keep everything that is already correct unchanged.
-Return the FULL corrected JSON in the SAME schema (room, camera_view, objects). No markdown.
-
-CURRENT LAYOUT JSON:
-{layout_json}
-""".strip()
+LAYOUT_REFINE_PROMPT = load_prompt("layout_refine")
 
 
 def _build_layout_schema() -> types.Schema:
@@ -656,7 +517,7 @@ def refine_layout(
         },
         ensure_ascii=False,  # 한글 등 유니코드 그대로 유지
     )
-    prompt = LAYOUT_REFINE_PROMPT.format(layout_json=payload)  # 교정 프롬프트에 현재 layout 삽입
+    prompt = LAYOUT_REFINE_PROMPT.replace("{layout_json}", payload)  # 교정 프롬프트에 현재 layout 삽입
     config = _layout_config(thinking_budget)  # 동일한 구조화 출력 설정 사용
 
     def _run():
