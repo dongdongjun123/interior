@@ -18,6 +18,8 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 from model1 import interior_to_floorplan as floorplan_model
+from mood_pipeline import search as mood_search
+from mood_pipeline.config import IMAGE_ROOT as MOOD_IMAGE_ROOT
 
 app = Flask(
     __name__,
@@ -101,11 +103,53 @@ def floorplan():
 
 
 # ── 프롬프트 입력 ──────────────────────────────────────
+DEFAULT_MOOD_QUERY = "cozy warm interior with natural wood and plants"  # 첫 진입 시 기본 무드
+
+
+def _mood_results_to_urls(results):
+    # search 결과(상대경로)를 브라우저가 접근 가능한 /mood-image URL로 변환
+    return [
+        {"url": url_for("mood_image", filename=r["path"]), "score": r["score"]}
+        for r in results
+    ]
+
+
 @app.route("/prompt")
 def prompt():
     if "uploaded_file" not in session:
         return redirect(url_for("upload"))
-    return render_template("prompt.html")
+
+    # 첫 진입 시 기본 무드로 미리보기 이미지 3장 준비 (검색 실패해도 화면은 뜸)
+    previews = []
+    try:
+        results = mood_search.search_by_prompt(DEFAULT_MOOD_QUERY, top_k=3)
+        previews = _mood_results_to_urls(results)
+    except Exception as exc:
+        print(f"[prompt] 무드 미리보기 생성 실패: {exc}")
+
+    return render_template("prompt.html", previews=previews)
+
+
+@app.route("/mood-search")
+def mood_search_api():
+    # 프롬프트 텍스트 → 유사 이미지 top-K (프론트에서 실시간 호출)
+    query = (request.args.get("q") or "").strip()
+    if not query:
+        return jsonify({"ok": True, "results": []})
+    try:
+        results = mood_search.search_by_prompt(query, top_k=3)
+        return jsonify({"ok": True, "results": _mood_results_to_urls(results)})
+    except Exception as exc:
+        print(f"[mood-search] 검색 실패: {exc}")
+        return jsonify({"ok": False, "error": "무드 검색 중 오류가 발생했습니다."}), 500
+
+
+@app.route("/mood-image/<path:filename>")
+def mood_image(filename):
+    # images/final의 이미지를 안전하게 서빙 (static 밖이라 별도 라우트 필요)
+    from flask import send_from_directory
+
+    return send_from_directory(str(MOOD_IMAGE_ROOT), filename)
 
 
 # ── AI 생성 (핵심 연동 지점) ────────────────────────────

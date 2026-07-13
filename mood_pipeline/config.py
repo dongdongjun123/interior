@@ -30,6 +30,12 @@ GEMINI_EMBEDDINGS_PATH = DATA_DIR / "gemini_embeddings.npy"
 GEMINI_PATHS_PATH = DATA_DIR / "gemini_image_paths.json"
 GEMINI_UMAP_PATH = PREVIEW_DIR / "umap_gemini.png"
 
+# 프롬프트→이미지 검색용 CLIP 임베딩 캐시 (search.py, images/final 전체 대상)
+CLIP_IMAGE_EMBEDDINGS_PATH = DATA_DIR / "clip_image_embeddings.npy"
+CLIP_IMAGE_PATHS_PATH = DATA_DIR / "clip_image_paths.json"
+# 한글 프롬프트 번역 캐시 (반복 번역 방지)
+PROMPT_TRANSLATION_CACHE_PATH = DATA_DIR / "prompt_translation_cache.json"
+
 # Hugging Face CLIP 모델 ID
 CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
 # 허용 이미지 확장자

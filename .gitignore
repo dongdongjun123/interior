@@ -17,6 +17,8 @@ data/gemini_features.json
 data/gemini_embeddings.npy
 data/gemini_image_paths.json
 data/previews/umap_gemini.png
+data/clip_image_embeddings.npy
+data/clip_image_paths.json
 
 # 검색 캐시 (자동 생성)
 data/prompt_translation_cache.json

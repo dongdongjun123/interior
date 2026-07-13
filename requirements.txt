@@ -18,10 +18,7 @@ scikit-learn
 umap-learn
 tqdm
 
-# --- model3(검색) 예정: mood-search — 지금은 비활성 ---
-# 프롬프트→유사 이미지 검색 기능을 붙일 때 아래 주석 해제 (torch 계열은 용량 큼)
-# torch
-# torchvision
-# transformers
-# pandas
-# deep-translator
+# --- 무드 검색 (프롬프트 → 유사 이미지, CLIP) ---
+# torch/torchvision은 위 ultralytics가 이미 설치함
+transformers         # CLIP 이미지·텍스트 임베딩
+deep-translator      # 한글 프롬프트 → 영어 번역 (CLIP은 영어 모델)

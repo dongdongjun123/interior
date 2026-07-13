@@ -34,14 +34,24 @@
     <!-- 오른쪽: Style Preview (Pinterest 느낌) -->
     <div class="col-12 col-lg-4">
       <h6 class="mb-3">Style Preview</h6>
-      <div class="row g-2">
-        {% for i in range(3) %}
-        <div class="col-6">
-          <div class="style-preview-item d-flex align-items-center justify-content-center" style="height:160px;">
-            <span class="text-muted">사진</span>
+      <div class="row g-2" id="stylePreview">
+        {% if previews %}
+          {% for p in previews %}
+          <div class="col-6">
+            <div class="style-preview-item" style="height:160px;">
+              <img src="{{ p.url }}" alt="mood" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
+            </div>
           </div>
-        </div>
-        {% endfor %}
+          {% endfor %}
+        {% else %}
+          {% for i in range(3) %}
+          <div class="col-6">
+            <div class="style-preview-item d-flex align-items-center justify-content-center" style="height:160px;">
+              <span class="text-muted">사진</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
       </div>
     </div>
 
@@ -51,5 +61,6 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/prompt.js') }}"
-        data-generate-url="{{ url_for('generate') }}"></script>
+        data-generate-url="{{ url_for('generate') }}"
+        data-mood-search-url="{{ url_for('mood_search_api') }}"></script>
 {% endblock %}
