@@ -1,0 +1,109 @@
+/* style.css — 공통 스타일 (모든 페이지 공통 적용) */
+
+body {
+  font-family: var(--font-base);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-weight: var(--fw-regular);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--fw-bold);
+  color: var(--color-text);
+}
+
+p {
+  color: var(--color-text);
+}
+
+.text-muted {
+  color: var(--color-text-muted) !important;
+}
+
+a {
+  color: var(--color-primary);
+}
+a:hover {
+  color: var(--color-primary-dark);
+}
+
+/* ── 카드 (둥근 버튼/카드 디자인) ───────────────── */
+.card,
+.border {
+  border-color: var(--color-border) !important;
+}
+
+.bg-light {
+  background-color: #F1ECE6 !important;
+}
+
+.rounded,
+.rounded-3 {
+  border-radius: var(--radius) !important;
+}
+
+.rounded-pill {
+  border-radius: var(--radius-pill) !important;
+}
+
+/* 이미지 자리 / placeholder 박스 전체에 공통 여백감 */
+.container, .container-fluid {
+  padding-top: .5rem;
+}
+
+/* ── 버튼 ───────────────────────────────────────── */
+.btn {
+  font-weight: var(--fw-semibold);
+  transition: all .2s ease;
+}
+
+.btn-dark {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.btn-dark:hover {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+.btn-outline-dark {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.btn-outline-dark:hover {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-outline-secondary {
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+.btn-outline-secondary:hover {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+/* 태그 버튼(추천 태그, 스타일 배지 공통) */
+.badge {
+  font-weight: var(--fw-regular);
+  background-color: var(--color-accent) !important;
+  color: var(--color-text) !important;
+}
+
+/* 카드형 박스에 은은한 그림자 */
+.shadow-card {
+  box-shadow: var(--shadow-card);
+  border: none !important;
+}
+.shadow-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+/* 여백이 많은 섹션 구분 */
+section {
+  margin-bottom: var(--space-section);
+}

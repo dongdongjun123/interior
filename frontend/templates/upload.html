@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - Upload{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:700px;">
+
+  <p class="upload-step-label mb-1">STEP 1</p>
+  <h4 class="mb-4">방 사진 업로드</h4>
+
+  <!-- Drag & Drop 업로드 영역 -->
+  <div class="dropzone p-5 text-center mb-3" id="dropZone">
+    <div class="upload-icon mb-3" style="font-size:2rem;">📷</div>
+    <p class="mb-1">Drag &amp; Drop</p>
+    <p class="text-muted mb-3">또는</p>
+    <button type="button" class="btn btn-outline-dark rounded-pill px-4" id="chooseFileBtn">파일 선택</button>
+    <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" class="d-none">
+  </div>
+
+  <p class="text-muted small mb-4">JPG · PNG · 최대 20MB</p>
+  <p class="text-danger small mb-4 d-none" id="uploadError"></p>
+
+  <!-- 업로드 후 미리보기 (파일 선택 전에는 숨김) -->
+  <div class="preview-card p-3 d-flex align-items-center gap-3 mb-4 d-none" id="previewCard">
+    <img id="previewThumb" class="preview-thumb flex-shrink-0" style="width:80px; height:80px; object-fit:cover;" alt="미리보기">
+    <div class="flex-grow-1">
+      <p class="mb-0" id="previewName">파일명.jpg</p>
+      <small class="text-muted" id="previewSize">0MB</small>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="removeFileBtn">삭제</button>
+  </div>
+
+  <div class="text-end">
+    <button type="button" class="btn btn-dark rounded-pill px-4" id="nextBtn" disabled>다음</button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"
+        data-upload-url="{{ url_for('upload') }}"></script>
+{% endblock %}

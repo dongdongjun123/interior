@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - Prompt{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/prompt.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row g-4">
+
+    <!-- 왼쪽: 입력 영역 -->
+    <div class="col-12 col-lg-8">
+      <h4 class="mb-3">원하는 분위기를 입력하세요</h4>
+
+      <textarea class="form-control prompt-textarea mb-2" id="moodInput" rows="3"
+        placeholder="예) 아기자기한 다락방, 식물이 많은, 햇살이 잘 드는"></textarea>
+
+      <!-- 추천 태그 (클릭 시 자동 입력) -->
+      <div class="d-flex flex-wrap gap-2 mb-4" id="tagGroup">
+        {% for tag in ["Cozy", "Warm", "Plants", "Loft", "Wood", "Vintage"] %}
+        <button type="button" class="btn btn-sm rounded-pill tag-btn" data-tag="{{ tag }}">
+          #{{ tag }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <div class="text-end">
+        <button type="button" class="btn btn-dark rounded-pill px-4" id="generateBtn">생성하기</button>
+      </div>
+    </div>
+
+    <!-- 오른쪽: Style Preview (Pinterest 느낌) -->
+    <div class="col-12 col-lg-4">
+      <h6 class="mb-3">Style Preview</h6>
+      <div class="row g-2">
+        {% for i in range(3) %}
+        <div class="col-6">
+          <div class="style-preview-item d-flex align-items-center justify-content-center" style="height:160px;">
+            <span class="text-muted">사진</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/prompt.js') }}"
+        data-generate-url="{{ url_for('generate') }}"></script>
+{% endblock %}

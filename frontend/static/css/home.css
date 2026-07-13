@@ -1,0 +1,53 @@
+/* home.css */
+
+.hero-section {
+  padding: 5rem 0 4rem;
+  border-bottom: none !important;
+  text-align: center;
+}
+
+.hero-section h1 {
+  font-size: 2.75rem;
+  letter-spacing: -1px;
+}
+
+.hero-section .lead {
+  color: var(--color-text-muted);
+  font-size: 1.15rem;
+}
+
+.hero-image {
+  border-radius: var(--radius-lg) !important;
+  background-color: var(--color-accent) !important;
+  border: none !important;
+}
+
+.btn-hero-start {
+  background-color: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: .85rem 2.25rem;
+  font-size: 1rem;
+}
+.btn-hero-start:hover {
+  background-color: var(--color-primary-dark);
+  color: #fff;
+}
+
+/* 최근 생성 / 추천 스타일 카드 */
+.thumb-card {
+  border-radius: var(--radius) !important;
+  background-color: var(--color-card) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-card);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.thumb-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+}
+
+.style-label {
+  font-weight: var(--fw-semibold);
+  margin-top: .5rem;
+}

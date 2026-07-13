@@ -1,0 +1,37 @@
+/* upload.css */
+
+.upload-step-label {
+  color: var(--color-primary);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 1px;
+}
+
+.dropzone {
+  border: 2px dashed var(--color-accent) !important;
+  border-radius: var(--radius-lg) !important;
+  background-color: var(--color-card);
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+.dropzone:hover,
+.dropzone.dragover {
+  border-color: var(--color-primary) !important;
+  background-color: #FBF8F5;
+}
+
+.dropzone .upload-icon {
+  color: var(--color-primary);
+}
+
+.preview-card {
+  background-color: var(--color-card) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-card);
+}
+
+.preview-thumb {
+  border-radius: var(--radius-sm) !important;
+  background-color: var(--color-accent) !important;
+  border: none !important;
+}

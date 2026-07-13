@@ -1,0 +1,35 @@
+/* variables.css
+   디자인 토큰 — 색상 / 폰트 / Radius / Shadow
+   다른 모든 CSS는 이 파일의 변수만 참조한다.
+*/
+
+:root {
+  /* Color */
+  --color-primary: #8B5E3C;
+  --color-primary-dark: #6F4A2F;
+  --color-bg: #F8F6F3;
+  --color-card: #FFFFFF;
+  --color-accent: #DCC8B4;
+  --color-text: #333333;
+  --color-text-muted: #8A8580;
+  --color-border: #EAE4DC;
+
+  /* Font */
+  --font-base: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Radius */
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  /* Shadow */
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, .08);
+  --shadow-hover: 0 12px 32px rgba(0, 0, 0, .12);
+
+  /* Spacing rhythm (여백 많은 느낌) */
+  --space-section: 4rem;
+}

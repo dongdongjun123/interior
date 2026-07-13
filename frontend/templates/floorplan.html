@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - Floorplan{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row g-4">
+
+    <div class="col-12 col-lg-8">
+      <h5 class="mb-3">AI가 생성한 평면도</h5>
+      <div class="result-image border d-flex align-items-center justify-content-center mb-3" style="height:380px;">
+        <span class="text-muted">[ 평면도 ]</span>
+      </div>
+
+      <div class="d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-dark rounded-pill px-4">수정하기</button>
+        <a href="{{ url_for('prompt') }}" class="btn btn-dark rounded-pill px-4">다음</a>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+      <div class="preview-card p-3 mb-3">
+        <h6 class="mb-3">공간 정보 (예상)</h6>
+        <ul class="list-unstyled mb-0">
+          <li class="d-flex justify-content-between py-1">
+            <span class="text-muted">면적</span>
+            <span>{{ plan.area_sqm }}m² ({{ plan.area_pyeong }}평)</span>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="text-muted">가로</span><span>{{ plan.width_m }}m</span>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="text-muted">세로</span><span>{{ plan.depth_m }}m</span>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="text-muted">천장 높이</span><span>{{ plan.ceiling_m }}m</span>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="text-muted">방 유형</span><span>{{ plan.rooms }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="ai-description p-3">
+        Tip: 평면도는 AI 분석 결과라 정확하지 않을 수 있어요.
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

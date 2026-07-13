@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - Result{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/result.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/recommend.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <div class="row g-4">
+
+    <!-- 왼쪽 : 생성된 이미지 (크게) -->
+    <div class="col-12 col-lg-8">
+      {% if generated_file %}
+      <img src="{{ url_for('static', filename='generated/' + generated_file) }}"
+           alt="AI 생성 결과" class="result-image w-100 mb-3" style="height:460px; object-fit:cover;">
+      {% else %}
+      <div class="result-image border d-flex align-items-center justify-content-center mb-3"
+           style="height:460px;">
+        <span class="text-muted">[ 생성된 이미지 없음 — 처음부터 다시 시작해주세요 ]</span>
+      </div>
+      {% endif %}
+
+      <div class="result-actions d-flex gap-2">
+        <a href="{{ url_for('prompt') }}" class="btn btn-outline-dark rounded-pill">다시 생성</a>
+        <button type="button" class="btn btn-outline-dark rounded-pill" id="saveBtn">저장</button>
+        <button type="button" class="btn btn-outline-dark rounded-pill" id="shareBtn">공유</button>
+      </div>
+
+      <!-- AI 설명 -->
+      <p class="ai-description mt-3 mb-0">
+        "{{ description or '따뜻한 조명을 사용했고, 우드톤 가구를 배치했습니다.' }}"
+      </p>
+    </div>
+
+    <!-- 오른쪽 : Style 패널 -->
+    <div class="col-12 col-lg-4">
+      <h6 class="mb-3">Style</h6>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        {% for tag in tags %}
+        <span class="badge style-badge rounded-pill">{{ tag }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 가구 (클릭 -> 오른쪽 Drawer) -->
+  <section class="mt-5">
+    <h5 class="mb-3">가구</h5>
+    <p class="text-muted">이미지 속 가구를 클릭하면 비슷한 상품을 추천해드립니다.</p>
+    <div class="my-3">
+      <button id="uploadRecommendBtn" class="btn btn-outline-dark rounded-pill">
+        업로드 사진 기반 상품 추천 보기
+      </button>
+    </div>
+
+    <div id="uploadRecommendResult" class="mt-3"></div>
+
+    <div class="row g-3">
+      {% for item_id, label in [("chair-001", "Wood Chair"), ("table-001", "Dining Table"), ("lamp-001", "Floor Lamp")] %}
+      <div class="col-4 col-md-2">
+        <div class="furniture-item d-flex align-items-center justify-content-center"
+             style="height:100px; cursor:pointer;"
+             data-item-id="{{ item_id }}"
+             data-bs-toggle="offcanvas" data-bs-target="#furnitureDrawer">
+          <span class="text-muted">{{ label }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+</div>
+
+<!-- 가구 추천 Drawer (Bootstrap Offcanvas 활용, 내용은 recommend.js가 /recommend API로 채움) -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="furnitureDrawer">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title" id="drawerTitle">상품 정보</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body" id="drawerBody">
+    <div class="drawer-loading">불러오는 중...</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/result.js') }}"></script>
+<script src="{{ url_for('static', filename='js/recommend.js') }}"
+        data-recommend-url="{{ url_for('recommend') }}"></script>
+
+<script src="{{ url_for('static', filename='js/upload_recommend.js') }}"></script>
+{% endblock %}

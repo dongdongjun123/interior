@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - Analyzing{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/loading.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container text-center" style="max-width:520px;">
+
+  <div class="loading-spinner mb-4">
+    <div class="spinner-ring"></div>
+  </div>
+
+  <h5 class="mb-4">AI가 공간을 분석하고 있습니다.</h5>
+
+  <div class="progress mb-2" style="height:10px;">
+    <div class="progress-bar" id="progressBar" role="progressbar" style="width:0%"></div>
+  </div>
+  <p class="text-muted mb-4" id="progressPercent">0%</p>
+
+  <ul class="list-unstyled text-start mx-auto checklist" style="max-width:280px;">
+    <li data-step="0"><span class="check-icon">○</span> 벽 분석</li>
+    <li data-step="1"><span class="check-icon">○</span> 창문 분석</li>
+    <li data-step="2"><span class="check-icon">○</span> 문 분석</li>
+    <li data-step="3"><span class="check-icon">○</span> 가구 분석</li>
+  </ul>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/loading.js') }}"
+        data-next-url="{{ url_for('floorplan') }}"></script>
+{% endblock %}
