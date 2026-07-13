@@ -1,4 +1,5 @@
 import os
+import sys
 import uuid
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 
@@ -12,6 +13,11 @@ from ultralytics import YOLO
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 프론트엔드는 별도 폴더(../frontend)로 분리됨
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
+# 프로젝트 루트를 import 경로에 추가 (model1, mood_pipeline 사용)
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+from model1 import interior_to_floorplan as floorplan_model
 
 app = Flask(
     __name__,
@@ -76,8 +82,22 @@ def loading():
 def floorplan():
     if "uploaded_file" not in session:
         return redirect(url_for("upload"))
-    plan = database.get_floorplan_mock()
-    return render_template("floorplan.html", plan=plan)
+
+    plan = database.get_floorplan_mock()  # 면적 등 공간 정보(현재 mock, 실측은 사진만으로 불가)
+    svg_markup = None  # 실제 생성된 평면도 SVG
+
+    upload_path = os.path.join(UPLOAD_DIR, session["uploaded_file"])
+    try:
+        # model1으로 실제 평면도 SVG 생성 (Gemini layout 1회 + 무료 렌더)
+        result = floorplan_model.generate_floorplan_for_web(
+            upload_path, GENERATED_DIR, skip_existing=True,
+        )
+        svg_markup = result["svg_markup"]
+    except Exception as exc:
+        # 실패(키 없음/쿼터 초과 등) 시 평면도 없이 진행 — 화면은 mock 정보로 표시
+        print(f"[floorplan] 평면도 생성 실패, mock으로 진행: {exc}")
+
+    return render_template("floorplan.html", plan=plan, svg_markup=svg_markup)
 
 
 # ── 프롬프트 입력 ──────────────────────────────────────

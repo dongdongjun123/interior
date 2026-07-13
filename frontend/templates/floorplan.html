@@ -3,13 +3,22 @@
 {% block title %}AI Interior - Floorplan{% endblock %}
 
 {% block content %}
+<style>
+  /* 생성된 평면도 SVG가 박스 안에 비율 유지하며 들어가도록 */
+  .floorplan-svg-box { overflow: hidden; padding: 8px; }
+  .floorplan-svg-box svg { max-width: 100%; max-height: 100%; height: auto; }
+</style>
 <div class="container">
   <div class="row g-4">
 
     <div class="col-12 col-lg-8">
       <h5 class="mb-3">AI가 생성한 평면도</h5>
-      <div class="result-image border d-flex align-items-center justify-content-center mb-3" style="height:380px;">
-        <span class="text-muted">[ 평면도 ]</span>
+      <div class="result-image border d-flex align-items-center justify-content-center mb-3 floorplan-svg-box" style="height:380px;">
+        {% if svg_markup %}
+          {{ svg_markup | safe }}
+        {% else %}
+          <span class="text-muted">평면도를 생성하지 못했어요 (API 키/사용량을 확인해 주세요)</span>
+        {% endif %}
       </div>
 
       <div class="d-flex justify-content-between">

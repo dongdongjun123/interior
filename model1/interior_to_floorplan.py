@@ -1059,6 +1059,53 @@ def plot_svg_floorplan_figure(
     display(HTML(html))
 
 
+def generate_floorplan_for_web(
+    image_path: str | Path,
+    output_dir: str | Path,
+    *,
+    analysis_model: str | None = None,
+    skip_existing: bool = True,
+) -> dict:
+    """웹(backend)용 고수준 헬퍼: 사진 한 장 → 평면도 SVG + 방 정보.
+
+    내부에서 layout 추출(Gemini 1회) → 규칙 기반 SVG 렌더(무료)를 수행하고,
+    backend가 바로 화면에 쓸 수 있도록 SVG 마크업과 방 정보를 함께 반환한다.
+
+    반환: {
+        "svg_path": SVG 파일 경로(str),
+        "svg_markup": <svg>...</svg> 문자열(HTML 삽입용),
+        "aspect_ratio": 가로÷세로 비율(float 또는 None),
+        "object_count": 배치된 가구 수(int),
+    }
+    """
+    _load_env()  # .env 로드(API 키)
+    client = _get_client()  # Gemini 클라이언트
+    image_path = Path(image_path)
+    output_dir = Path(output_dir)
+    model = analysis_model or os.getenv("GEMINI_ANALYSIS_MODEL", DEFAULT_ANALYSIS_MODEL)  # 분석 모델 결정
+
+    # 1) 사진 → layout JSON (Gemini 호출, 캐시 있으면 재사용)
+    run_rule_based_layout_step(
+        client, image_path, output_dir,
+        analysis_model=model, skip_existing=skip_existing,
+    )
+    # 2) layout JSON → SVG 파일 (Gemini 호출 없음)
+    svg_meta = run_rule_based_svg_step(
+        image_path, output_dir, skip_existing=skip_existing,
+    )
+
+    paths = _output_paths(image_path, output_dir)  # 산출물 경로 묶음
+    svg_markup = paths["rule_svg"].read_text(encoding="utf-8")  # 생성된 SVG 원문
+    layout = json.loads(paths["layout"].read_text(encoding="utf-8"))  # 방 정보 추출용
+
+    return {
+        "svg_path": svg_meta["floorplan_svg"],
+        "svg_markup": svg_markup,
+        "aspect_ratio": (layout.get("room") or {}).get("aspect_ratio"),
+        "object_count": len(layout.get("objects", [])),
+    }
+
+
 def maybe_plot(source: Path, floorplan_path: Path) -> None:
     # 원본+평면도 시각화 헬퍼 (CLI --plot 옵션에서 호출)
     plot_floorplan_figure(source, floorplan_path)
