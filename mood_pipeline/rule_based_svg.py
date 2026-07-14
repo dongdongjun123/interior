@@ -14,57 +14,17 @@ LAYOUT_OBJECT_TYPES = [
     "plant", "door", "window", "unknown",
 ]
 
-RULE_BASED_LAYOUT_PROMPT = """
-You are extracting layout information from an interior room PHOTO for a rule-based SVG floor-plan renderer.
-Return ONLY valid JSON. No markdown.
+# 프롬프트는 코드에 하드코딩하지 않고 프로젝트 루트 prompts/*.txt에서 읽어온다.
+# rule_based_svg.py는 mood_pipeline/ 안에 있으므로 부모의 부모가 프로젝트 루트.
+PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
-STEP 1 — read the camera view FIRST (fill "camera_view"):
-- Which wall is the camera facing? Which wall(s) have windows (photo left/right/back)?
-- Getting this right is what makes the top-down mapping correct.
 
-Coordinate system (top-down floor plan, normalized 0.0–1.0):
-- x=0 is the LEFT wall, x=1 is the RIGHT wall.
-- y=0 is the TOP wall (back of room), y=1 is the BOTTOM wall (near camera / foreground).
-- x,y are object CENTER positions.
-- Map the photo to top-down: photo left → plan left, photo right → plan right,
-  photo background → plan top (y≈0), photo foreground → plan bottom (y≈1).
+def load_prompt(name: str) -> str:
+    """prompts/<name>.txt 파일을 읽어 프롬프트 문자열로 반환 (앞뒤 공백 제거)."""
+    return (PROMPTS_DIR / f"{name}.txt").read_text(encoding="utf-8").strip()
 
-JSON schema:
-{
-  "room": {"shape": "rectangle", "aspect_ratio": 1.4, "description": "brief room description"},
-  "camera_view": "e.g. camera faces the back wall; windows on the left (west) wall",
-  "objects": [
-    {
-      "type": "one of: bed, desk, table, low_table, shelf, cabinet, chair, floor_chair, stool, rug, mirror, lamp, plant, door, window, unknown",
-      "label": "short English label",
-      "x": 0.0, "y": 0.0, "w": 0.1, "h": 0.1,
-      "wall": "left|right|top|bottom|none",
-      "confidence": 0.0
-    }
-  ]
-}
 
-Worked example (bed in the back-right corner, low table centered near the front):
-- A bed pushed to the back-right wall → x≈0.78, y≈0.28, w≈0.34, h≈0.30, wall "right".
-- A low table in the middle, slightly toward the camera → x≈0.5, y≈0.6, w≈0.22, h≈0.16, wall "none".
-- A window on the back wall → x≈0.5, y≈0.03, w≈0.4, h≈0.03, wall "top".
-
-Rules:
-- room.aspect_ratio = room WIDTH ÷ DEPTH. Estimate it honestly (0.6–2.0); the canvas is shaped by it.
-- Prioritize correct type and relative placement over quantity.
-- x,y (object CENTER) must be as precise as possible — read the perspective and map it to the top-down plan.
-- w,h must reflect each object's REAL top-down footprint as a fraction of the room.
-  Estimate true relative sizes, e.g. a large bed ≈ w 0.30–0.45 / h 0.30–0.45,
-  a low table ≈ 0.18–0.28, a chair/stool ≈ 0.08–0.12. Do NOT return a constant size for everything.
-- Low seating around a low table: use type low_table + floor_chair (not desk/chair).
-- Place floor_chair on north/south/east/west of the low_table center when visible.
-- Items against a wall: set wall to left|right|top|bottom and place x or y near that edge.
-- Windows: at most ONE window object per wall; w≈0.3–0.5, h≈0.03; wall must match the actual wall.
-- Skip small accessories (table lamp, laptop, plant on stool) unless they define layout.
-- Include at most 2 lamps total. confidence < 0.6 → omit the object.
-- Prefer 6–12 important objects, not 15+ overlapping items.
-- Include doors/windows only if clearly visible.
-""".strip()
+RULE_BASED_LAYOUT_PROMPT = load_prompt("rule_based_layout")
 
 RENDERER_VERSION = "3.7"
 
