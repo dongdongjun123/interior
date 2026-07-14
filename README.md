@@ -6,9 +6,10 @@
 interior/
 ├── frontend/      # 화면 (Jinja2 템플릿 + static css/js) — Flask가 렌더링
 ├── backend/       # Flask 서버 (app.py = API + 화면 + 세션 한 곳에)
-├── model1/        # 사진 → 2D 평면도 (Gemini)
+├── model1/        # 사진 → 2D 평면도 (Gemini) — 역할별 모듈로 분리
 ├── model2/        # 무드 분석 → 특징 추출 (Gemini, CLI)
-├── mood_pipeline/ # model1·model2 공용 패키지
+├── mood_pipeline/ # model1·model2 공용 패키지 (config, gemini_extract, search, rule_based_svg …)
+├── prompts/       # 모든 Gemini 프롬프트(*.txt) — model1·mood_pipeline 공유
 ├── images/ data/ output/   # 데이터·산출물
 ├── requirements.txt        # 통합 의존성 (가상환경 하나)
 └── .env                    # API 키 (.env.example 복사해서 작성)
@@ -29,6 +30,8 @@ cp .env.example .env
 ```
 - `GEMINI_API_KEY` — https://aistudio.google.com/apikey (model1/model2 필수)
 - `NAVER_CLIENT_ID/SECRET` — https://developers.naver.com/apps (가구 추천용, 없으면 그 기능만 비활성)
+- 모델명·옵션(`GEMINI_ANALYSIS_MODEL`, `GEMINI_THINKING_BUDGET`, `GEMINI_LAYOUT_REFINE` 등)은 선택 —
+  `.env`에 넣으면 코드 수정 없이 덮어쓸 수 있습니다. 자세한 목록은 [REPO_STRUCTURE.md](REPO_STRUCTURE.md#환경변수-env).
 
 > **가상환경(venv)은 OS마다 다르므로 git에 포함하지 않습니다.**
 > 아래 자기 환경에 맞는 방법으로 각자 생성하세요. Windows용/리눅스용을 이름을 나눠 공존시킵니다.
@@ -81,8 +84,8 @@ python app.py
 가상환경은 위에서 만든 것을 activate한 상태로.
 
 ```bash
-# 사진 → 평면도
-python model1/interior_to_floorplan.py --help
+# 사진 → 평면도 (구 경로 python model1/interior_to_floorplan.py 도 그대로 동작)
+python -m model1.cli --help
 
 # 무드 특징 추출 + UMAP
 python model2/run_gemini_features.py --help
@@ -92,7 +95,7 @@ python model2/run_gemini_features.py --help
 
 ## 참고
 
-- `model2/notebooks/06_gemini_features.ipynb` 는 실험용. 일부 셀은 아직 미구현
-  모듈(`mood_pipeline/search.py`, `prompt_floorplan.py`)에 의존해 동작하지 않음.
+- 무드 검색(`mood_pipeline/search.py`, 프롬프트→유사 이미지 CLIP 검색)은 구현되어 backend `/mood-search`에서 사용 중.
+- `model2/notebooks/06_gemini_features.ipynb` 는 실험용. 일부 셀은 미구현 모듈(`prompt_floorplan.py`)에 의존해 동작하지 않음.
 - 실행 규칙 요약: **웹 서버는 `backend/`에서, 모델 스크립트는 루트에서.**
 - 자세한 재구조화 기록은 [REPO_STRUCTURE.md](REPO_STRUCTURE.md) 참고.
