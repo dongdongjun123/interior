@@ -21,11 +21,11 @@ interior/
 
 ---
 
-## 1. 준비 (공통)
+## 1. 준비
 
 `.env` 파일에 API 키를 넣습니다.
-```bash
-cp .env.example .env
+```powershell
+Copy-Item .env.example .env
 # .env 를 열어 GEMINI_API_KEY / NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 채우기
 ```
 - `GEMINI_API_KEY` — https://aistudio.google.com/apikey (model1/model2 필수)
@@ -33,12 +33,11 @@ cp .env.example .env
 - 모델명·옵션(`GEMINI_ANALYSIS_MODEL`, `GEMINI_THINKING_BUDGET`, `GEMINI_LAYOUT_REFINE` 등)은 선택 —
   `.env`에 넣으면 코드 수정 없이 덮어쓸 수 있습니다. 자세한 목록은 [REPO_STRUCTURE.md](REPO_STRUCTURE.md#환경변수-env).
 
-> **가상환경(venv)은 OS마다 다르므로 git에 포함하지 않습니다.**
-> 아래 자기 환경에 맞는 방법으로 각자 생성하세요. Windows용/리눅스용을 이름을 나눠 공존시킵니다.
+> **가상환경(venv)은 git에 포함하지 않습니다.** 아래 방법으로 각자 생성하세요.
 
 ---
 
-## 2-A. Windows (PowerShell / CMD)
+## 2. 실행 (Windows / PowerShell)
 
 ```powershell
 cd interior
@@ -51,23 +50,6 @@ cd backend
 python app.py
 ```
 > `activate`에서 실행 차단 오류 시 1회: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
-
-## 2-B. WSL / Linux / macOS (bash)
-
-```bash
-cd /mnt/c/Users/jundo/Desktop/7min/interior   # WSL 경로 예시
-python3 -m venv venv-linux          # 최초 1회 (Windows venv와 이름 분리)
-source venv-linux/bin/activate
-pip install -r requirements.txt     # 최초 1회
-
-# 웹 서버 실행
-cd backend
-python app.py
-```
-
-> ⚠️ **환경을 섞지 마세요.** Windows에서 만든 `venv/`는 WSL에서 동작하지 않고
-> (그 반대도 마찬가지), `ModuleNotFoundError: No module named 'flask'`가 납니다.
-> WSL에서는 반드시 `venv-linux/`(리눅스용)를 만들어 `source venv-linux/bin/activate` 하세요.
 
 ---
 
@@ -83,8 +65,8 @@ python app.py
 웹앱과 별개로 모델을 직접 돌릴 때. **반드시 루트에서** 실행 (mood_pipeline import 때문).
 가상환경은 위에서 만든 것을 activate한 상태로.
 
-```bash
-# 사진 → 평면도 (구 경로 python model1/interior_to_floorplan.py 도 그대로 동작)
+```powershell
+# 사진 → 평면도 (구 경로 python model1\interior_to_floorplan.py 도 그대로 동작)
 python -m model1.cli --help
 
 # 무드 특징 추출 + UMAP
