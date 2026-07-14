@@ -30,6 +30,12 @@ from .config import (
 )
 from .preprocess import collect_image_paths, filter_valid_images
 
+# .env를 import 시점에 먼저 로드해야 아래/함수의 os.getenv(...)가 .env 값을 읽는다.
+load_dotenv(PROJECT_ROOT / ".env")
+
+# 특징 추출 모델: .env로 덮어쓸 수 있다(없으면 config 기본값 사용).
+FEATURE_MODEL = os.getenv("GEMINI_FEATURE_MODEL", GEMINI_FEATURE_MODEL)
+
 # 무드 slug 후보 (JSON mood_slug 검증용)
 MOOD_SLUGS = sorted(set(SLUG_MAP.values()))
 
@@ -95,7 +101,7 @@ def extract_features(
     client: genai.Client,
     image_path: Path,
     *,
-    model: str = GEMINI_FEATURE_MODEL,
+    model: str = FEATURE_MODEL,  # .env(GEMINI_FEATURE_MODEL) 반영값
     max_side: int = 512,
 ) -> dict:
     response = client.models.generate_content(
@@ -174,7 +180,7 @@ def run_gemini_extraction(
 ) -> dict:
     _load_env()
     client = _get_client()
-    model = model or os.getenv("GEMINI_FEATURE_MODEL", GEMINI_FEATURE_MODEL)
+    model = model or FEATURE_MODEL  # 인자 우선, 없으면 .env 반영값
 
     root = image_root or IMAGE_ROOT
     paths, _ = filter_valid_images(collect_image_paths(root))
@@ -261,7 +267,7 @@ def plot_gemini_umap(
 
     fig, ax = plt.subplots(figsize=(10, 8))
     scatter = ax.scatter(coords[:, 0], coords[:, 1], c=colors, cmap="tab20", s=40, alpha=0.75)
-    ax.set_title(f"UMAP — Gemini 특징 ({GEMINI_FEATURE_MODEL})")
+    ax.set_title(f"UMAP — Gemini 특징 ({FEATURE_MODEL})")
     ax.set_xlabel("UMAP-1")
     ax.set_ylabel("UMAP-2")
 
