@@ -1,0 +1,136 @@
+{
+  "image": "samples/room.jpg",
+  "image_size": {
+    "width": 1080,
+    "height": 1440
+  },
+  "object_count": 6,
+  "objects": [
+    {
+      "id": 0,
+      "class": "bed",
+      "matched_phrase": "bed",
+      "bbox_pixel": {
+        "x": 1,
+        "y": 683,
+        "w": 692,
+        "h": 755
+      },
+      "bbox_norm": {
+        "x": 0.0005,
+        "y": 0.4745,
+        "w": 0.641,
+        "h": 0.524
+      },
+      "floor_contact": {
+        "x": 0.321,
+        "y": 0.9985
+      }
+    },
+    {
+      "id": 1,
+      "class": "rug",
+      "matched_phrase": "carpet",
+      "bbox_pixel": {
+        "x": 401,
+        "y": 909,
+        "w": 677,
+        "h": 528
+      },
+      "bbox_norm": {
+        "x": 0.3715,
+        "y": 0.6315,
+        "w": 0.627,
+        "h": 0.367
+      },
+      "floor_contact": {
+        "x": 0.685,
+        "y": 0.9985
+      }
+    },
+    {
+      "id": 2,
+      "class": "lamp",
+      "matched_phrase": "lamp",
+      "bbox_pixel": {
+        "x": 518,
+        "y": 424,
+        "w": 117,
+        "h": 513
+      },
+      "bbox_norm": {
+        "x": 0.4795,
+        "y": 0.2945,
+        "w": 0.108,
+        "h": 0.356
+      },
+      "floor_contact": {
+        "x": 0.5335,
+        "y": 0.6505
+      }
+    },
+    {
+      "id": 3,
+      "class": "picture",
+      "matched_phrase": "picture frame",
+      "bbox_pixel": {
+        "x": 1,
+        "y": 335,
+        "w": 184,
+        "h": 179
+      },
+      "bbox_norm": {
+        "x": 0.0005,
+        "y": 0.2325,
+        "w": 0.17,
+        "h": 0.124
+      },
+      "floor_contact": {
+        "x": 0.0855,
+        "y": 0.3565
+      }
+    },
+    {
+      "id": 4,
+      "class": "plant",
+      "matched_phrase": "potted plant",
+      "bbox_pixel": {
+        "x": 647,
+        "y": 590,
+        "w": 96,
+        "h": 196
+      },
+      "bbox_norm": {
+        "x": 0.5995,
+        "y": 0.4095,
+        "w": 0.089,
+        "h": 0.136
+      },
+      "floor_contact": {
+        "x": 0.644,
+        "y": 0.5455
+      }
+    },
+    {
+      "id": 5,
+      "class": "lamp",
+      "matched_phrase": "lamp",
+      "bbox_pixel": {
+        "x": 815,
+        "y": 688,
+        "w": 81,
+        "h": 153
+      },
+      "bbox_norm": {
+        "x": 0.7545,
+        "y": 0.4775,
+        "w": 0.075,
+        "h": 0.106
+      },
+      "floor_contact": {
+        "x": 0.792,
+        "y": 0.5835
+      }
+    }
+  ]
+}
