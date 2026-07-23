@@ -49,10 +49,20 @@ def allowed_file(filename: str) -> bool:
 def index():
     return render_template("index.html")
 
+# ── 새로운 디자인 시작 ─────────────────────────────────
+@app.route("/start")
+def start():
+    """이전 작업 정보를 지우고 새 디자인을 시작한다."""
+    session.clear()
+    return redirect(url_for("prompt"))
 
 # ── STEP 1: 사진 업로드 ────────────────────────────────
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
+    # 스타일 입력 없이 업로드 화면에 직접 접근한 경우
+    if request.method == "GET" and "mood_prompt" not in session:
+        return redirect(url_for("prompt"))
+
     if request.method == "POST":
         file = request.files.get("photo")
         if not file or file.filename == "":
@@ -107,28 +117,54 @@ DEFAULT_MOOD_QUERY = "cozy warm interior with natural wood and plants"  # 첫 �
 
 
 def _mood_results_to_urls(results):
-    # search 결과(상대경로)를 브라우저가 접근 가능한 /mood-image URL로 변환
     return [
-        {"url": url_for("mood_image", filename=r["path"]), "score": r["score"]}
+        {
+            "url": url_for("mood_image", filename=r["path"]),
+            "path": r["path"],
+            "score": r["score"],
+        }
         for r in results
     ]
 
 
 @app.route("/prompt")
 def prompt():
-    if "uploaded_file" not in session:
-        return redirect(url_for("upload"))
+    """처음에는 추천 이미지를 표시하지 않는다."""
+    return render_template("prompt.html", previews=[])
 
-    # 첫 진입 시 기본 무드로 미리보기 이미지 3장 준비 (검색 실패해도 화면은 뜸)
-    previews = []
-    try:
-        results = mood_search.search_by_prompt(DEFAULT_MOOD_QUERY, top_k=3)
-        previews = _mood_results_to_urls(results)
-    except Exception as exc:
-        print(f"[prompt] 무드 미리보기 생성 실패: {exc}")
+# ── 스타일 입력 저장 ────────────────────────────────────
+@app.route("/save-style", methods=["POST"])
+def save_style():
+    """입력한 인테리어 문구와 태그를 저장하고 업로드 단계로 이동한다."""
+    data = request.get_json(silent=True) or {}
 
-    return render_template("prompt.html", previews=previews)
+    prompt_text = (data.get("prompt") or "").strip()
+    tags = data.get("tags") or []
+    selected_image = (data.get("selected_image") or "").strip()
 
+    if not prompt_text:
+        return jsonify({
+            "ok": False,
+            "error": "원하는 인테리어 분위기를 입력해 주세요.",
+        }), 400
+
+    if not selected_image:
+        return jsonify({
+            "ok": False,
+            "error": "추천 이미지 중 하나를 선택해 주세요.",
+        }), 400
+
+    if not isinstance(tags, list):
+        tags = []
+
+    session["mood_prompt"] = prompt_text
+    session["style_tags"] = tags
+    session["selected_mood_image"] = selected_image
+
+    return jsonify({
+        "ok": True,
+        "redirect": url_for("upload"),
+    })
 
 @app.route("/mood-search")
 def mood_search_api():
@@ -137,7 +173,7 @@ def mood_search_api():
     if not query:
         return jsonify({"ok": True, "results": []})
     try:
-        results = mood_search.search_by_prompt(query, top_k=3)
+        results = mood_search.search_by_prompt(query, top_k=5)
         return jsonify({"ok": True, "results": _mood_results_to_urls(results)})
     except Exception as exc:
         print(f"[mood-search] 검색 실패: {exc}")
@@ -153,32 +189,37 @@ def mood_image(filename):
 
 
 # ── AI 생성 (핵심 연동 지점) ────────────────────────────
-@app.route("/generate", methods=["POST"])
-def generate():
-    if "uploaded_file" not in session:
-        return jsonify({"ok": False, "error": "업로드된 이미지가 없습니다."}), 400
 
-    data = request.get_json(silent=True) or {}
-    prompt_text = data.get("prompt", "")
-    tags = data.get("tags", [])
+# ── 임시 디자인 결과 생성 ───────────────────────────────
+@app.route("/generate-design", methods=["POST"])
+def generate_design():
+    """평면도 확인 후 현재 mock 생성기를 실행한다."""
+
+    if "mood_prompt" not in session:
+        return redirect(url_for("prompt"))
+
+    if "uploaded_file" not in session:
+        return redirect(url_for("upload"))
+
+    prompt_text = session["mood_prompt"]
+    tags = session.get("style_tags", [])
 
     upload_path = os.path.join(UPLOAD_DIR, session["uploaded_file"])
 
-    # 🔌 실제 AI 이미지 생성 모델 호출 지점 (지금은 mock)
+    # TODO: 추후 공식 Model2의 keep/remove/buy 및 2D 배치 로직으로 교체
     generated_filename = ai_backend.generate_interior_image(
         upload_path=upload_path,
         output_dir=GENERATED_DIR,
         prompt_text=prompt_text,
         tags=tags,
     )
+
     description = ai_backend.generate_description(tags, prompt_text)
 
     session["generated_file"] = generated_filename
     session["ai_description"] = description
-    session["style_tags"] = tags
 
-    return jsonify({"ok": True, "redirect": url_for("result")})
-
+    return redirect(url_for("result"))
 
 # ── 결과 ──────────────────────────────────────────────
 @app.route("/result")

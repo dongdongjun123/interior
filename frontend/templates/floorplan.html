@@ -23,7 +23,10 @@
 
       <div class="d-flex justify-content-between">
         <button type="button" class="btn btn-outline-dark rounded-pill px-4">수정하기</button>
-        <a href="{{ url_for('prompt') }}" class="btn btn-dark rounded-pill px-4">다음</a>
+
+        <form method="POST" action="{{ url_for('generate_design') }}" class="m-0">
+          <button type="submit" class="btn btn-dark rounded-pill px-4">다음</button>
+        </form>
       </div>
     </div>
 
