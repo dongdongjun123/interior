@@ -1,0 +1,6 @@
+torch
+torchvision
+transformers==4.49.0
+timm
+einops
+pillow
