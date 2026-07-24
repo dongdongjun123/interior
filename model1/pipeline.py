@@ -836,6 +836,10 @@ def generate_floorplan_for_web(
         image_path
     )
 
+    output_dir = Path(
+        output_dir
+    )
+
     model = (
         analysis_model
         or os.getenv(
