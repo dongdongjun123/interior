@@ -26,7 +26,7 @@ def load_prompt(name: str) -> str:
 
 RULE_BASED_LAYOUT_PROMPT = load_prompt("rule_based_layout")
 
-RENDERER_VERSION = "3.7"
+RENDERER_VERSION = "4.0"
 
 # 방/캔버스 크기 — aspect_ratio에 따라 render_svg 시작 시 _set_canvas()가 재계산.
 BASE_LONG_SIDE = 820  # 긴 변 기준 길이(px)
@@ -38,16 +38,68 @@ GRID = 50
 GRID_SNAP = 20  # 가구 정렬 격자(px)
 
 STYLE = {
-    "wall": "#111827",
-    "line": "#334155",
-    "thin": "#64748b",
-    "grid": "#e5e7eb",
-    "floor": "#fbfaf7",
-    "wood": "#d7b98d",
-    "bed": "#f8fafc",
-    "glass": "#dff3ff",
-    "text": "#111827",
-    "rug": "#f3e7d3",
+    "wall": "#2f2a26",
+    "line": "#5f554d",
+    "thin": "#8d8177",
+    "grid": "#eee8e1",
+    "floor": "#fffdf9",
+    "wood": "#d8b58d",
+    "bed": "#fffaf4",
+    "glass": "#dff4f7",
+    "text": "#292522",
+    "muted": "#756d66",
+    "rug": "#efe2d2",
+    "accent": "#8a5a3b",
+    "accent_soft": "#f3e3d7",
+    "existing": "#f7f3ee",
+    "recommend": "#fff3e9",
+}
+
+FONT_FAMILY = "Pretendard, Noto Sans KR, Arial, sans-serif"
+
+
+KOREAN_LABELS = {
+    "bed": "침대",
+    "desk": "책상",
+    "table": "테이블",
+    "low_table": "낮은 테이블",
+    "shelf": "선반",
+    "cabinet": "수납장",
+    "chair": "의자",
+    "floor_chair": "좌식 의자",
+    "stool": "스툴",
+    "rug": "러그",
+    "mirror": "거울",
+    "lamp": "조명",
+    "plant": "식물",
+    "door": "문",
+    "window": "창문",
+    "unknown": "가구",
+}
+
+
+LABEL_ALIASES = {
+    "single bed": "싱글 침대",
+    "bed": "침대",
+    "desk": "책상",
+    "table": "테이블",
+    "low table": "낮은 테이블",
+    "nightstand": "협탁",
+    "side table": "협탁",
+    "tv stand": "TV장",
+    "table lamp": "탁상 조명",
+    "floor lamp": "스탠드 조명",
+    "shelf": "선반",
+    "cabinet": "수납장",
+    "chair": "의자",
+    "floor chair": "좌식 의자",
+    "stool": "스툴",
+    "rug": "러그",
+    "mirror": "거울",
+    "lamp": "조명",
+    "plant": "식물",
+    "door": "문",
+    "window": "창문",
 }
 
 STD_SIZE: dict[str, tuple[int, int]] = {
@@ -137,6 +189,80 @@ def norm_type(t: str | None) -> str:
     }
     t = aliases.get(t, t)
     return t if t in STD_SIZE else "unknown"
+
+def display_label(
+    object_type: str,
+    raw_label: str | None,
+    source: str | None = None,
+) -> str:
+    """
+    영문 또는 기술용 가구 라벨을
+    사용자용 한글 라벨로 변환한다.
+    """
+
+    object_type = norm_type(
+        object_type
+    )
+
+    label_text = str(
+        raw_label or ""
+    ).strip()
+
+    # 추천 가구의 번호는 별도 배지로 그리기 때문에
+    # "1. 새 테이블"에서 앞 번호를 제거한다.
+    if source == "selected_product":
+        label_text = re.sub(
+            r"^\s*\d+\s*[.)-]?\s*",
+            "",
+            label_text,
+        )
+
+        if label_text:
+            return label_text
+
+    normalized = (
+        label_text
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+    )
+
+    normalized = re.sub(
+        r"\s+",
+        " ",
+        normalized,
+    ).strip()
+
+    if normalized in LABEL_ALIASES:
+        return LABEL_ALIASES[
+            normalized
+        ]
+
+    type_text = object_type.replace(
+        "_",
+        " ",
+    )
+
+    if (
+        not normalized
+        or normalized == type_text
+    ):
+        return KOREAN_LABELS.get(
+            object_type,
+            "가구",
+        )
+
+    # 이미 한글 이름이면 그대로 사용
+    if re.search(
+        r"[가-힣]",
+        label_text,
+    ):
+        return label_text
+
+    return KOREAN_LABELS.get(
+        object_type,
+        label_text or "가구",
+    )
 
 
 def clamp(v: float, lo: float, hi: float) -> float:
@@ -251,13 +377,33 @@ def coerce_layout_v3(layout: LayoutDict) -> LayoutDict:
         out_objects.append(
             {
                 "type": t,
-                "label": obj.get("label") or t.replace("_", " ").title(),
+                "label": (
+                    obj.get("label")
+                    or t.replace(
+                        "_",
+                        " ",
+                    ).title()
+                ),
                 "x": cx,
                 "y": cy,
                 "w": ow,
                 "h": oh,
                 "wall": wall,
                 "confidence": conf,
+
+                # 추천 상품과 연결하는 정보
+                "source": obj.get(
+                    "source"
+                ),
+                "product_marker": obj.get(
+                    "product_marker"
+                ),
+                "product_link": obj.get(
+                    "product_link"
+                ),
+                "product_title": obj.get(
+                    "product_title"
+                ),
             }
         )
 
@@ -436,40 +582,128 @@ def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, 
     return rest
 
 
-def normalize_objects(layout: LayoutDict) -> list[PlacedObject]:
+def normalize_objects(
+    layout: LayoutDict,
+) -> list[PlacedObject]:
     objs: list[PlacedObject] = []
-    for idx, o in enumerate(layout.get("objects", [])):
-        t = norm_type(o.get("type"))
-        label = o.get("label") or t.replace("_", " ").title()
-        std_w, std_h = STD_SIZE.get(t, STD_SIZE["unknown"])
-        zx, zy = ZONE_POS.get(t, ZONE_POS["unknown"])
-        conf = float(o.get("confidence", 0.5) or 0.5)
 
-        # 위치: Gemini center 좌표를 그대로 사용 (기본값 끌어당김 없음).
-        # 좌표가 빠진 경우에만 ZONE_POS로 fallback.
-        xv, yv = o.get("x"), o.get("y")
-        xn = float(xv) if xv is not None else zx
-        yn = float(yv) if yv is not None else zy
-        cx = clamp(xn, 0.02, 0.98) * ROOM_W + MARGIN_X
-        cy = clamp(yn, 0.02, 0.98) * ROOM_H + MARGIN_Y
+    for idx, obj in enumerate(
+        layout.get(
+            "objects",
+            [],
+        )
+    ):
+        object_type = norm_type(
+            obj.get("type")
+        )
 
-        # 크기: 모든 타입에 Gemini w,h를 반영(가독성 클램프 포함).
-        # window/door는 wall_attach에서 벽 규격으로 다시 덮어씀.
-        w, h = _gemini_size(o, std_w, std_h)
+        source = obj.get(
+            "source"
+        )
+
+        object_label = display_label(
+            object_type,
+            obj.get("label"),
+            source=source,
+        )
+
+        std_w, std_h = STD_SIZE.get(
+            object_type,
+            STD_SIZE["unknown"],
+        )
+
+        zone_x, zone_y = ZONE_POS.get(
+            object_type,
+            ZONE_POS["unknown"],
+        )
+
+        confidence = float(
+            obj.get(
+                "confidence",
+                0.5,
+            )
+            or 0.5
+        )
+
+        x_value = obj.get("x")
+        y_value = obj.get("y")
+
+        x_normalized = (
+            float(x_value)
+            if x_value is not None
+            else zone_x
+        )
+
+        y_normalized = (
+            float(y_value)
+            if y_value is not None
+            else zone_y
+        )
+
+        center_x = (
+            clamp(
+                x_normalized,
+                0.02,
+                0.98,
+            )
+            * ROOM_W
+            + MARGIN_X
+        )
+
+        center_y = (
+            clamp(
+                y_normalized,
+                0.02,
+                0.98,
+            )
+            * ROOM_H
+            + MARGIN_Y
+        )
+
+        width, height = _gemini_size(
+            obj,
+            std_w,
+            std_h,
+        )
 
         objs.append(
             {
-                "type": t,
-                "label": label,
-                "cx": cx,
-                "cy": cy,
-                "w": w,
-                "h": h,
-                "wall": o.get("wall", "none") or "none",
-                "confidence": conf,
+                "type": object_type,
+                "label": object_label,
+                "cx": center_x,
+                "cy": center_y,
+                "w": width,
+                "h": height,
+                "wall": (
+                    obj.get(
+                        "wall",
+                        "none",
+                    )
+                    or "none"
+                ),
+                "confidence": confidence,
                 "idx": idx,
+
+                # 추천 상품 표시 정보
+                "source": source,
+                "product_marker": (
+                    obj.get(
+                        "product_marker"
+                    )
+                ),
+                "product_link": (
+                    obj.get(
+                        "product_link"
+                    )
+                ),
+                "product_title": (
+                    obj.get(
+                        "product_title"
+                    )
+                ),
             }
         )
+
     return objs
 
 
@@ -771,11 +1005,31 @@ def _set_canvas(aspect_ratio: float | int | None) -> None:
     INNER_B = MARGIN_Y + ROOM_H - 18
 
 
-def label(x: float, y: float, s: str, size: int = 15, anchor: str = "middle") -> str:
+def label(
+    x: float,
+    y: float,
+    text: str,
+    size: int = 15,
+    anchor: str = "middle",
+    weight: int = 600,
+    fill: str | None = None,
+) -> str:
+    text_fill = (
+        fill
+        or STYLE["text"]
+    )
+
     return (
-        f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" '
-        f'font-family="Arial, sans-serif" font-size="{size}" fill="{STYLE["text"]}">'
-        f"{escape(str(s))}</text>"
+        f'<text '
+        f'x="{x:.1f}" '
+        f'y="{y:.1f}" '
+        f'text-anchor="{anchor}" '
+        f'font-family="{FONT_FAMILY}" '
+        f'font-size="{size}" '
+        f'font-weight="{weight}" '
+        f'fill="{text_fill}">'
+        f'{escape(str(text))}'
+        f'</text>'
     )
 
 
@@ -962,26 +1216,230 @@ DRAWERS: dict[str, Any] = {
 }
 
 
-def draw_obj(o: PlacedObject) -> str:
-    return DRAWERS.get(o["type"], generic)(o)
+def selected_product_outline(
+    obj: PlacedObject,
+) -> str:
+    """
+    선택한 추천 가구 주변에
+    점선 강조 테두리를 표시한다.
+    """
+
+    if (
+        obj.get("source")
+        != "selected_product"
+    ):
+        return ""
+
+    x = float(obj["x"]) - 7
+    y = float(obj["y"]) - 7
+
+    width = (
+        float(obj["w"])
+        + 14
+    )
+
+    height = (
+        float(obj["h"])
+        + 14
+    )
+
+    return (
+        f'<rect '
+        f'x="{x}" '
+        f'y="{y}" '
+        f'width="{width}" '
+        f'height="{height}" '
+        f'rx="12" '
+        f'fill="none" '
+        f'stroke="{STYLE["accent"]}" '
+        f'stroke-width="4" '
+        f'stroke-dasharray="10 6"/>'
+    )
+
+
+def selected_product_marker(
+    obj: PlacedObject,
+) -> str:
+    """
+    추천 상품 카드와 연결되는
+    번호 배지를 평면도에 표시한다.
+    """
+
+    if (
+        obj.get("source")
+        != "selected_product"
+    ):
+        return ""
+
+    marker = obj.get(
+        "product_marker"
+    )
+
+    if marker in (
+        None,
+        "",
+    ):
+        return ""
+
+    x = (
+        float(obj["x"])
+        + float(obj["w"])
+        - 5
+    )
+
+    y = (
+        float(obj["y"])
+        + 5
+    )
+
+    radius = 18
+
+    return (
+        f'<g class="product-marker">'
+
+        f'<circle '
+        f'cx="{x}" '
+        f'cy="{y}" '
+        f'r="{radius + 4}" '
+        f'fill="#ffffff" '
+        f'opacity="0.96"/>'
+
+        f'<circle '
+        f'cx="{x}" '
+        f'cy="{y}" '
+        f'r="{radius}" '
+        f'fill="{STYLE["accent"]}" '
+        f'stroke="#ffffff" '
+        f'stroke-width="2"/>'
+
+        f'<text '
+        f'x="{x}" '
+        f'y="{y + 6}" '
+        f'text-anchor="middle" '
+        f'font-family="{FONT_FAMILY}" '
+        f'font-size="17" '
+        f'font-weight="800" '
+        f'fill="#ffffff">'
+        f'{escape(str(marker))}'
+        f'</text>'
+
+        f'</g>'
+    )
+
+
+def draw_obj(
+    obj: PlacedObject,
+) -> str:
+    drawer = DRAWERS.get(
+        obj["type"],
+        generic,
+    )
+
+    object_svg = drawer(
+        obj
+    )
+
+    source = escape(
+        str(
+            obj.get("source")
+            or "detected"
+        )
+    )
+
+    return (
+        f'<g data-source="{source}">'
+        f'{selected_product_outline(obj)}'
+        f'{object_svg}'
+        f'{selected_product_marker(obj)}'
+        f'</g>'
+    )
 
 
 def dimensions() -> str:
-    x1, y1 = MARGIN_X, MARGIN_Y
-    x2, y2 = MARGIN_X + ROOM_W, MARGIN_Y + ROOM_H
-    ty = MARGIN_Y - 42
-    lx = MARGIN_X - 56
+    """
+    실측 숫자가 없는 평면도에서는
+    가로·세로 방향만 표시한다.
+    """
+
+    x1 = MARGIN_X
+    y1 = MARGIN_Y
+
+    x2 = MARGIN_X + ROOM_W
+    y2 = MARGIN_Y + ROOM_H
+
+    top_y = MARGIN_Y - 38
+    left_x = MARGIN_X - 50
+
+    width_text = label(
+        (x1 + x2) / 2,
+        top_y - 8,
+        "가로 방향",
+        13,
+        anchor="middle",
+        weight=500,
+        fill=STYLE["muted"],
+    )
+
+    depth_center_y = (y1 + y2) / 2
+
     return (
-        f'<line x1="{x1}" y1="{ty}" x2="{x2}" y2="{ty}" stroke="{STYLE["line"]}"/>'
-        f'<circle cx="{x1}" cy="{ty}" r="4" fill="{STYLE["line"]}"/>'
-        f'<circle cx="{x2}" cy="{ty}" r="4" fill="{STYLE["line"]}"/>'
-        f'{label((x1 + x2) / 2, ty + 8, "Room width", 14)}'
-        f'<line x1="{lx}" y1="{y1}" x2="{lx}" y2="{y2}" stroke="{STYLE["line"]}"/>'
-        f'<circle cx="{lx}" cy="{y1}" r="4" fill="{STYLE["line"]}"/>'
-        f'<circle cx="{lx}" cy="{y2}" r="4" fill="{STYLE["line"]}"/>'
-        f'<text x="{lx}" y="{(y1 + y2) / 2}" text-anchor="middle" font-family="Arial" '
-        f'font-size="14" fill="{STYLE["text"]}" transform="rotate(-90 {lx} {(y1 + y2) / 2})">'
-        f"Room depth</text>"
+        f'<line '
+        f'x1="{x1}" '
+        f'y1="{top_y}" '
+        f'x2="{x2}" '
+        f'y2="{top_y}" '
+        f'stroke="{STYLE["thin"]}" '
+        f'stroke-width="1.5"/>'
+
+        f'<circle '
+        f'cx="{x1}" '
+        f'cy="{top_y}" '
+        f'r="3.5" '
+        f'fill="{STYLE["thin"]}"/>'
+
+        f'<circle '
+        f'cx="{x2}" '
+        f'cy="{top_y}" '
+        f'r="3.5" '
+        f'fill="{STYLE["thin"]}"/>'
+
+        f'{width_text}'
+
+        f'<line '
+        f'x1="{left_x}" '
+        f'y1="{y1}" '
+        f'x2="{left_x}" '
+        f'y2="{y2}" '
+        f'stroke="{STYLE["thin"]}" '
+        f'stroke-width="1.5"/>'
+
+        f'<circle '
+        f'cx="{left_x}" '
+        f'cy="{y1}" '
+        f'r="3.5" '
+        f'fill="{STYLE["thin"]}"/>'
+
+        f'<circle '
+        f'cx="{left_x}" '
+        f'cy="{y2}" '
+        f'r="3.5" '
+        f'fill="{STYLE["thin"]}"/>'
+
+        f'<text '
+        f'x="{left_x - 10}" '
+        f'y="{depth_center_y}" '
+        f'text-anchor="middle" '
+        f'font-family="{FONT_FAMILY}" '
+        f'font-size="13" '
+        f'font-weight="500" '
+        f'fill="{STYLE["muted"]}" '
+        f'transform="rotate('
+        f'-90 '
+        f'{left_x - 10} '
+        f'{depth_center_y}'
+        f')">'
+        f'세로 방향'
+        f'</text>'
     )
 
 
@@ -1008,45 +1466,299 @@ def fit_walls(objs: list[PlacedObject], edge: int = 40, pad: int = 12) -> list[P
     return objs
 
 
-def render_svg(layout: LayoutDict, title: str = "Rule-based Floor Plan v3") -> str:
-    layout = coerce_layout_v3(layout)
-    _set_canvas((layout.get("room") or {}).get("aspect_ratio"))
-    layout["objects"] = postprocess_layout_objects(layout.get("objects", []))
-    sized = fit_walls(snap_chairs_to_table(normalize_objects(layout)))
-    packed = auto_pack(sized)
-    # 겹침 제거 → 격자 정렬 → 정렬로 생긴 미세 겹침 재제거
-    objs = resolve_overlaps(grid_align(resolve_overlaps(packed)))
-    object_svg = "\n".join(draw_obj(o) for o in objs)
+def render_svg(
+    layout: LayoutDict,
+    title: str = "AI 인테리어 평면도",
+) -> str:
+    layout = coerce_layout_v3(
+        layout
+    )
 
-    legend_y = MARGIN_Y + ROOM_H + 70
-    legend: list[str] = [
-        f'<text x="{MARGIN_X}" y="{legend_y - 24}" font-family="Arial" font-size="17" '
-        f'font-weight="700" fill="{STYLE["text"]}">Legend</text>'
-    ]
-    lx = MARGIN_X
-    for o in [o for o in objs if o["type"] not in ("door", "window")][:9]:
-        legend.append(
-            f'<rect x="{lx}" y="{legend_y}" width="28" height="18" rx="3" '
-            f'fill="#f8fafc" stroke="{STYLE["line"]}"/>'
+    room_data = (
+        layout.get("room")
+        or {}
+    )
+
+    _set_canvas(
+        room_data.get(
+            "aspect_ratio"
         )
-        legend.append(label(lx + 14, legend_y + 42, o["label"], 12))
-        lx += 105
+    )
+
+    layout["objects"] = (
+        postprocess_layout_objects(
+            layout.get(
+                "objects",
+                [],
+            )
+        )
+    )
+
+    normalized = normalize_objects(
+        layout
+    )
+
+    snapped = snap_chairs_to_table(
+        normalized
+    )
+
+    sized = fit_walls(
+        snapped
+    )
+
+    packed = auto_pack(
+        sized
+    )
+
+    first_resolved = (
+        resolve_overlaps(
+            packed
+        )
+    )
+
+    aligned = grid_align(
+        first_resolved
+    )
+
+    objects = resolve_overlaps(
+        aligned
+    )
+
+    object_svg = "\n".join(
+        draw_obj(obj)
+        for obj in objects
+    )
+
+    selected_objects = [
+        obj
+        for obj in objects
+        if (
+            obj.get("source")
+            == "selected_product"
+        )
+    ]
+
+    if selected_objects:
+        subtitle = (
+            "번호가 표시된 가구는 "
+            "아래 추천 상품 카드와 연결됩니다."
+        )
+
+    else:
+        subtitle = (
+            "방 구조와 기존 가구 배치를 "
+            "한눈에 확인해보세요."
+        )
+
+    footer_y = (
+        MARGIN_Y
+        + ROOM_H
+        + 56
+    )
+
+    footer_parts: list[str] = [
+        (
+            f'<rect '
+            f'x="{MARGIN_X}" '
+            f'y="{footer_y - 28}" '
+            f'width="18" '
+            f'height="18" '
+            f'rx="5" '
+            f'fill="{STYLE["existing"]}" '
+            f'stroke="{STYLE["line"]}" '
+            f'stroke-width="1.5"/>'
+        ),
+
+        label(
+            MARGIN_X + 28,
+            footer_y - 14,
+            "기존 가구",
+            13,
+            anchor="start",
+            weight=500,
+            fill=STYLE["muted"],
+        ),
+
+        (
+            f'<rect '
+            f'x="{MARGIN_X + 125}" '
+            f'y="{footer_y - 28}" '
+            f'width="18" '
+            f'height="18" '
+            f'rx="5" '
+            f'fill="{STYLE["recommend"]}" '
+            f'stroke="{STYLE["accent"]}" '
+            f'stroke-width="2" '
+            f'stroke-dasharray="5 3"/>'
+        ),
+
+        label(
+            MARGIN_X + 153,
+            footer_y - 14,
+            "선택한 추천 가구",
+            13,
+            anchor="start",
+            weight=500,
+            fill=STYLE["muted"],
+        ),
+    ]
+
+    if selected_objects:
+        marker_x = MARGIN_X
+
+        marker_y = (
+            footer_y
+            + 22
+        )
+
+        for index, obj in enumerate(
+            selected_objects[:6]
+        ):
+            marker = obj.get(
+                "product_marker",
+                index + 1,
+            )
+
+            item_label = display_label(
+                obj.get(
+                    "type",
+                    "unknown",
+                ),
+                obj.get("label"),
+                source=(
+                    "selected_product"
+                ),
+            )
+
+            footer_parts.append(
+                (
+                    f'<circle '
+                    f'cx="{marker_x + 13}" '
+                    f'cy="{marker_y}" '
+                    f'r="13" '
+                    f'fill="{STYLE["accent"]}"/>'
+                )
+            )
+
+            footer_parts.append(
+                (
+                    f'<text '
+                    f'x="{marker_x + 13}" '
+                    f'y="{marker_y + 5}" '
+                    f'text-anchor="middle" '
+                    f'font-family="{FONT_FAMILY}" '
+                    f'font-size="13" '
+                    f'font-weight="800" '
+                    f'fill="#ffffff">'
+                    f'{escape(str(marker))}'
+                    f'</text>'
+                )
+            )
+
+            footer_parts.append(
+                label(
+                    marker_x + 34,
+                    marker_y + 5,
+                    item_label,
+                    13,
+                    anchor="start",
+                    weight=600,
+                )
+            )
+
+            marker_x += 145
+
+            if (
+                marker_x
+                > (
+                    MARGIN_X
+                    + ROOM_W
+                    - 120
+                )
+            ):
+                marker_x = MARGIN_X
+                marker_y += 34
+
+    footer_svg = "".join(
+        footer_parts
+    )
 
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS_W}" height="{CANVAS_H}" '
-        f'viewBox="0 0 {CANVAS_W} {CANVAS_H}">'
-        f"<!-- renderer-version:{RENDERER_VERSION} -->"
-        f'<rect width="100%" height="100%" fill="#f8fafc"/>'
-        f'<text x="40" y="42" font-family="Arial" font-size="30" font-weight="700" '
-        f'fill="{STYLE["text"]}">{escape(title)}</text>'
-        f'<text x="40" y="70" font-family="Arial" font-size="16" fill="#334155">'
-        f"Gemini extraction + Python icon renderer / improved packing</text>"
-        f"{dimensions()}{room()}{object_svg}{''.join(legend)}</svg>"
+        f'<svg '
+        f'xmlns="http://www.w3.org/2000/svg" '
+        f'width="{CANVAS_W}" '
+        f'height="{CANVAS_H}" '
+        f'viewBox="0 0 {CANVAS_W} {CANVAS_H}" '
+        f'role="img" '
+        f'aria-label="{escape(title)}">'
+
+        f'<!-- renderer-version:'
+        f'{RENDERER_VERSION} -->'
+
+        f'<rect '
+        f'width="100%" '
+        f'height="100%" '
+        f'fill="#f7f3ee"/>'
+
+        f'<rect '
+        f'x="24" '
+        f'y="20" '
+        f'width="{CANVAS_W - 48}" '
+        f'height="{CANVAS_H - 40}" '
+        f'rx="24" '
+        f'fill="#ffffff"/>'
+
+        f'<text '
+        f'x="42" '
+        f'y="48" '
+        f'font-family="{FONT_FAMILY}" '
+        f'font-size="28" '
+        f'font-weight="800" '
+        f'fill="{STYLE["text"]}">'
+        f'{escape(title)}'
+        f'</text>'
+
+        f'<text '
+        f'x="42" '
+        f'y="76" '
+        f'font-family="{FONT_FAMILY}" '
+        f'font-size="14" '
+        f'font-weight="500" '
+        f'fill="{STYLE["muted"]}">'
+        f'{escape(subtitle)}'
+        f'</text>'
+
+        f'{dimensions()}'
+        f'{room()}'
+        f'{object_svg}'
+        f'{footer_svg}'
+
+        f'</svg>'
     )
 
 
-def save_svg(layout: LayoutDict, path: str | Path, title: str = "Rule-based Floor Plan v3") -> Path:
-    out = Path(path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_svg(layout, title=title), encoding="utf-8")
-    return out
+def save_svg(
+    layout: LayoutDict,
+    path: str | Path,
+    title: str = "AI 인테리어 평면도",
+) -> Path:
+    output_path = Path(
+        path
+    )
+
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    svg_text = render_svg(
+        layout,
+        title=title,
+    )
+
+    output_path.write_text(
+        svg_text,
+        encoding="utf-8",
+    )
+
+    return output_path
