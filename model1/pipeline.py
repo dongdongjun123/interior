@@ -94,12 +94,15 @@ def run_rule_based_layout_step(
     refine: bool | None = None,
     room_width: float | None = None,
     room_depth: float | None = None,
+    detection_evidence: str | None = None,
 ) -> dict:
     """
     사진을 분석하여 rule-based renderer용 layout JSON을 생성한다.
 
     사용자가 방 가로와 세로를 입력했다면,
     Gemini 분석이 끝난 뒤 실제 방 비율을 최종 적용한다.
+
+    detection_evidence: Florence 탐지 근거 텍스트(선택). extract 단계로 그대로 전달.
     """
     output_dir.mkdir(
         parents=True,
@@ -270,11 +273,12 @@ def run_rule_based_layout_step(
         "Gemini layout 추출 중..."
     )
 
-    # 1차 Gemini 분석
+    # 1차 Gemini 분석 (Florence 근거가 있으면 함께 주입)
     layout = extract_rule_based_layout(
         client,
         image_path,
         model=analysis_model,
+        detection_evidence=detection_evidence,
     )
 
     refined = False
@@ -806,6 +810,7 @@ def generate_floorplan_for_web(
     skip_existing: bool = True,
     room_width: float | None = None,
     room_depth: float | None = None,
+    detection_evidence: str | None = None,
 ) -> dict:
     """
     웹용 고수준 헬퍼:
@@ -813,6 +818,10 @@ def generate_floorplan_for_web(
 
     사용자가 방 가로와 세로를 입력한 경우,
     가로÷세로 비율을 layout JSON과 SVG에 반영한다.
+
+    detection_evidence: Florence 탐지 근거 텍스트(선택). 있으면 layout 추출 시
+        개수·클래스를 사실로 강제하고 top-down 재판단 룰을 지시한다.
+        (근거를 새로 반영하려면 skip_existing=False 로 호출해 캐시를 건너뛸 것.)
 
     이후 가구 유지·제거 기능에서 사용할 수 있도록
     layout 파일 경로와 원본 객체 인덱스도 함께 반환한다.
@@ -827,10 +836,6 @@ def generate_floorplan_for_web(
         image_path
     )
 
-    output_dir = Path(
-        output_dir
-    )
-
     model = (
         analysis_model
         or os.getenv(
@@ -839,7 +844,7 @@ def generate_floorplan_for_web(
         )
     )
 
-    # 1. 사진에서 layout JSON 생성
+    # 1. 사진에서 layout JSON 생성 (Florence 근거가 있으면 함께 주입)
     layout_meta = run_rule_based_layout_step(
         client,
         image_path,
@@ -848,6 +853,7 @@ def generate_floorplan_for_web(
         skip_existing=skip_existing,
         room_width=room_width,
         room_depth=room_depth,
+        detection_evidence=detection_evidence,
     )
 
     # 방 크기가 변경되었다면
@@ -950,6 +956,7 @@ def generate_floorplan_for_web(
                 "depth_m"
             )
         ),
+        "dimensions_m": room_data.get("dimensions_m"),  # 실측 치수(m) — 없으면 None
         "dimensions_applied": (
             layout_meta.get(
                 "dimensions_applied",

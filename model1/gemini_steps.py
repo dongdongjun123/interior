@@ -190,16 +190,23 @@ def extract_rule_based_layout(
     *,
     model: str,
     thinking_budget: int | None = None,
+    detection_evidence: str | None = None,
 ) -> dict:
-    # 사진 → rule-based 렌더러용 layout JSON을 Gemini로 추출
+    # 사진 → rule-based 렌더러용 layout JSON을 Gemini로 추출.
+    # detection_evidence: Florence 탐지 근거 텍스트(선택). 있으면 프롬프트에 덧붙여
+    #   개수·클래스를 사실로 강제하고 top-down 재판단 룰을 지시한다(없으면 기존 동작).
     from mood_pipeline.rule_based_svg import RULE_BASED_LAYOUT_PROMPT, extract_json_from_text  # 전용 프롬프트·파서
+
+    prompt = RULE_BASED_LAYOUT_PROMPT
+    if detection_evidence:  # 근거가 있으면 프롬프트 뒤에 근거 블록을 덧붙인다
+        prompt = f"{RULE_BASED_LAYOUT_PROMPT}\n{detection_evidence}"
 
     config = _layout_config(thinking_budget)  # JSON 스키마가 적용된 설정 준비
 
     def _run():
         response = client.models.generate_content(
             model=model,
-            contents=[RULE_BASED_LAYOUT_PROMPT, _load_image_part(image_path)],  # 전용 프롬프트 + 사진
+            contents=[prompt, _load_image_part(image_path)],  # (근거 포함) 프롬프트 + 사진
             config=config,  # 구조화 출력 설정 적용
         )
         raw = (response.text or "").strip()  # 응답 텍스트 추출
