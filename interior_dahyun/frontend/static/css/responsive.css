@@ -1,0 +1,29 @@
+/* responsive.css — 모바일 대응 */
+
+@media (max-width: 767.98px) {
+  .hero-section {
+    padding: 3rem 0 2.5rem;
+  }
+  .hero-section h1 {
+    font-size: 2rem;
+  }
+  .hero-image {
+    height: 220px !important;
+  }
+  .result-image {
+    height: 300px !important;
+  }
+  .navbar-nav {
+    margin: .75rem 0;
+  }
+  .dropzone {
+    padding: 2.5rem 1rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .thumb-card,
+  .style-preview-item {
+    height: 110px !important;
+  }
+}

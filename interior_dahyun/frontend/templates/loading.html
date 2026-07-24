@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - Analyzing{% endblock %}
+
+{% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='css/loading.css') }}"
+>
+{% endblock %}
+
+{% block content %}
+<div class="container text-center loading-container">
+
+  <div class="loading-spinner mb-4" aria-hidden="true">
+    <div class="spinner-ring"></div>
+  </div>
+
+  <h5 class="mb-3" id="loadingTitle">
+    AI가 공간을 분석하고 있습니다.
+  </h5>
+
+  <p class="text-muted mb-4" id="loadingDescription">
+    방 사진을 바탕으로 평면도를 생성하고 있어요.
+  </p>
+
+  <!-- 정확한 퍼센트 대신 작업 중임을 보여주는 진행 막대 -->
+  <div
+    class="progress mb-2"
+    role="progressbar"
+    aria-label="평면도 생성 진행 중"
+  >
+    <div
+      class="progress-bar loading-progress-bar"
+      id="progressBar"
+    ></div>
+  </div>
+
+  <p class="text-muted small mb-4" id="progressText">
+    분석이 끝날 때까지 잠시만 기다려 주세요.
+  </p>
+
+  <!-- 분석 과정 안내 -->
+  <ul class="list-unstyled text-start mx-auto checklist">
+    <li data-step="0">
+      <span class="check-icon">○</span>
+      업로드 이미지 확인
+    </li>
+
+    <li data-step="1">
+      <span class="check-icon">○</span>
+      벽과 공간 구조 분석
+    </li>
+
+    <li data-step="2">
+      <span class="check-icon">○</span>
+      문과 창문 위치 분석
+    </li>
+
+    <li data-step="3">
+      <span class="check-icon">○</span>
+      평면도 생성
+    </li>
+  </ul>
+
+  <!-- 오류가 발생했을 때만 표시 -->
+  <div
+    class="alert alert-danger mt-4"
+    id="loadingError"
+    hidden
+  >
+    <p class="mb-3" id="loadingErrorMessage">
+      평면도를 생성하지 못했습니다.
+    </p>
+
+    <button
+      type="button"
+      class="btn btn-outline-danger btn-sm"
+      id="retryButton"
+    >
+      다시 시도
+    </button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script
+  src="{{ url_for('static', filename='js/loading.js') }}"
+  data-next-url="{{ url_for('floorplan') }}"
+></script>
+{% endblock %}

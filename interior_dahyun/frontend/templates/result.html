@@ -1,0 +1,465 @@
+{% extends "layout.html" %}
+
+{% block title %}
+AI Interior - Result
+{% endblock %}
+
+{% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='css/result.css') }}"
+>
+
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='css/recommend.css') }}"
+>
+
+<style>
+  .floorplan-result-card {
+    height: 420px;
+    padding: 1rem;
+    border: 1px solid #dedede;
+    border-radius: 16px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .floorplan-result-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .selection-summary-card {
+    padding: 1rem;
+    border: 1px solid #dedede;
+    border-radius: 14px;
+    background: #ffffff;
+  }
+
+  .decision-badge {
+    display: inline-flex;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+  }
+
+  .decision-keep {
+    background: #eef5ee;
+    color: #315d35;
+  }
+
+  .decision-remove {
+    background: #fff0f0;
+    color: #9f3030;
+  }
+
+  .result-image-zoomed {
+    height: auto !important;
+    object-fit: contain !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="mb-4">
+    <p class="text-muted small mb-2">
+      STEP 5
+    </p>
+
+    <h3 class="mb-2">
+      선택을 반영한 평면도
+    </h3>
+
+    <p class="text-muted mb-0">
+      기존 평면도와 가구 유지·제거 및
+      구매 선택을 반영한 결과를 비교해 보세요.
+    </p>
+  </div>
+
+  <div class="row g-4 mb-5">
+    <div class="col-12 col-lg-6">
+      <h5 class="mb-3">
+        기존 평면도
+      </h5>
+
+      <div class="floorplan-result-card">
+        {% if original_floorplan_file %}
+          <img
+            src="{{ url_for(
+              'static',
+              filename='generated/' + original_floorplan_file
+            ) }}"
+            alt="기존 평면도"
+          >
+        {% else %}
+          <div class="text-center">
+            <p class="fw-semibold mb-2">
+              기존 평면도가 없습니다.
+            </p>
+
+            <p class="text-muted small mb-0">
+              Gemini 분석이 실패하면
+              평면도 파일이 생성되지 않을 수 있습니다.
+            </p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <h5 class="mb-3">
+        선택 반영 평면도
+      </h5>
+
+      <div class="floorplan-result-card">
+        {% if modified_floorplan_file %}
+          <img
+            src="{{ url_for(
+              'static',
+              filename='generated/' + modified_floorplan_file
+            ) }}"
+            alt="선택을 반영한 수정 평면도"
+          >
+        {% else %}
+          <div class="text-center">
+            <p class="fw-semibold mb-2">
+              수정 평면도를 만들지 못했어요.
+            </p>
+
+            <p class="text-muted small mb-0">
+              수정 평면도를 만들려면
+              원본 Model1 layout JSON이 필요합니다.
+            </p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <section class="mb-5">
+    <h5 class="mb-3">
+      가구 선택 요약
+    </h5>
+
+    <div class="row g-3">
+      {% for choice in furniture_choices %}
+        <div class="col-12 col-md-6 col-lg-4">
+          <div
+            class="
+              selection-summary-card
+              d-flex
+              justify-content-between
+              align-items-center
+              gap-3
+            "
+          >
+            <span>
+              {{ choice.item }}
+            </span>
+
+            {% if choice.decision == 'remove' %}
+              <span
+                class="
+                  decision-badge
+                  decision-remove
+                "
+              >
+                제거
+              </span>
+            {% else %}
+              <span
+                class="
+                  decision-badge
+                  decision-keep
+                "
+              >
+                유지
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="col-12">
+          <p class="text-muted mb-0">
+            탐지되거나 선택된 기존 가구가 없습니다.
+          </p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="mb-5">
+    <h5 class="mb-2">
+      선택한 추천 가구
+    </h5>
+
+    <p class="text-muted mb-3">
+      평면도의 번호와 아래 상품 번호가
+      서로 연결됩니다.
+    </p>
+
+    <div class="row g-4">
+      {% for product in selected_products %}
+        <div
+          class="
+            col-12
+            col-md-6
+            col-lg-4
+          "
+        >
+          <article
+            class="
+              h-100
+              border
+              rounded-4
+              overflow-hidden
+              bg-white
+            "
+          >
+            <div
+              style="
+                height: 210px;
+                background: #f4f1ed;
+              "
+            >
+              {% if product.image %}
+                <img
+                  src="{{ product.image }}"
+                  alt="{{ product.title }}"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                  "
+                >
+              {% endif %}
+            </div>
+
+            <div class="p-4">
+              <div
+                class="
+                  d-flex
+                  align-items-center
+                  gap-2
+                  mb-3
+                "
+              >
+                <span
+                  class="
+                    badge
+                    rounded-circle
+                    text-bg-dark
+                    d-inline-flex
+                    align-items-center
+                    justify-content-center
+                  "
+                  style="
+                    width: 32px;
+                    height: 32px;
+                  "
+                >
+                  {{ product.marker }}
+                </span>
+
+                <span class="fw-semibold">
+                  {{ product.label }}
+                </span>
+              </div>
+
+              <h6 class="mb-2">
+                {{ product.title }}
+              </h6>
+
+              <p class="fw-bold mb-1">
+                {% if product.price %}
+                  {{
+                    "{:,}".format(
+                      product.price
+                    )
+                  }}원
+                {% else %}
+                  가격 정보 없음
+                {% endif %}
+              </p>
+
+              <p class="text-muted small mb-3">
+                {{
+                  product.shop
+                  or
+                  "판매처 정보 없음"
+                }}
+              </p>
+
+              {% if product.link %}
+                <a
+                  href="{{ product.link }}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="
+                    btn
+                    btn-outline-dark
+                    rounded-pill
+                    w-100
+                  "
+                >
+                  구매처 보기
+                </a>
+              {% endif %}
+            </div>
+          </article>
+        </div>
+
+      {% else %}
+        <div class="col-12">
+          <p class="text-muted mb-0">
+            선택한 추천 상품이 없습니다.
+          </p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="mb-5">
+    <h5 class="mb-3">
+      임시 스타일 미리보기
+    </h5>
+
+    {% if generated_file %}
+      <img
+        src="{{ url_for(
+          'static',
+          filename='generated/' + generated_file
+        ) }}"
+        alt="임시 스타일 미리보기"
+        class="result-image w-100 mb-3"
+        style="
+          height: 460px;
+          object-fit: cover;
+          border-radius: 16px;
+        "
+      >
+    {% else %}
+      <div
+        class="
+          result-image
+          border
+          d-flex
+          align-items-center
+          justify-content-center
+          mb-3
+        "
+        style="
+          height: 460px;
+          border-radius: 16px;
+        "
+      >
+        <span class="text-muted">
+          임시 스타일 미리보기가 없습니다.
+        </span>
+      </div>
+    {% endif %}
+
+    <p class="ai-description mt-3 mb-0">
+      {{
+        description
+        or
+        '선택한 스타일과 가구 정보를 반영한 결과입니다.'
+      }}
+    </p>
+  </section>
+
+  <div class="result-actions d-flex flex-wrap gap-2">
+    <a
+      href="{{ url_for('start') }}"
+      class="
+        btn
+        btn-outline-dark
+        rounded-pill
+        px-4
+      "
+    >
+      처음부터 다시
+    </a>
+
+    <button
+      type="button"
+      class="
+        btn
+        btn-outline-dark
+        rounded-pill
+        px-4
+      "
+      id="saveBtn"
+    >
+      저장
+    </button>
+
+    <button
+      type="button"
+      class="
+        btn
+        btn-outline-dark
+        rounded-pill
+        px-4
+      "
+      id="shareBtn"
+    >
+      공유
+    </button>
+  </div>
+</div>
+
+<div
+  class="offcanvas offcanvas-end"
+  tabindex="-1"
+  id="furnitureDrawer"
+>
+  <div class="offcanvas-header border-bottom">
+    <h5
+      class="offcanvas-title"
+      id="drawerTitle"
+    >
+      상품 정보
+    </h5>
+
+    <button
+      type="button"
+      class="btn-close"
+      data-bs-dismiss="offcanvas"
+      aria-label="닫기"
+    ></button>
+  </div>
+
+  <div
+    class="offcanvas-body"
+    id="drawerBody"
+  >
+    <div class="drawer-loading">
+      불러오는 중...
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script
+  src="{{ url_for(
+    'static',
+    filename='js/result.js'
+  ) }}"
+></script>
+
+<script
+  src="{{ url_for(
+    'static',
+    filename='js/recommend.js'
+  ) }}"
+  data-recommend-url="{{ url_for('recommend') }}"
+></script>
+{% endblock %}

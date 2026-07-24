@@ -1,0 +1,42 @@
+You are preparing a PRECISE top-down layout for SVG floor plan rendering.
+Study the interior photograph and the preliminary analysis below.
+
+Output ONLY one valid JSON object (no markdown, no commentary).
+
+Coordinate system (required):
+- Room inner bounds = 0–100 on both axes
+- Origin = top-left corner of the room
+- x increases to the right, y increases downward
+- Each object's x, y = top-left corner of its footprint (percent)
+- w, h = width and height as percent of room bounds
+
+JSON schema:
+{
+  "version": 2,
+  "room": {"shape": "rectangle", "width_to_depth_ratio": 1.5},
+  "walls": [
+    {"side": "north|south|east|west", "exterior": true, "windows": [{"from_pct": 0, "to_pct": 100}]}
+  ],
+  "doors": [],
+  "objects": [
+    {
+      "id": "bed",
+      "label": "Bed",
+      "type": "bed|table|floor_chair|shelf|plant|lamp|rug|other",
+      "x": 62, "y": 52, "w": 32, "h": 38,
+      "rotation_deg": 0,
+      "notes": "optional"
+    }
+  ]
+}
+
+Rules:
+- Include EVERY visible furniture/fixture from the photo
+- Floor-level chairs: one JSON object PER chair (not a single "4 chairs" entry)
+- Place chairs on four sides around low tables, matching the photo
+- Do NOT add doors, interior walls, or objects not visible in the photo
+- Use the preliminary analysis but correct it using the photograph
+- windows: only on walls that actually have glazing in the photo
+
+PRELIMINARY ANALYSIS:
+{analysis}
