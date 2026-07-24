@@ -1,12 +1,15 @@
 # detect.py
 """방 사진에서 가구를 인식해 JSON으로 출력합니다.
-사용법: python detect.py samples/room.jpg
+사용법:
+  python detect.py samples/room.jpg                 # 기본: outputs/detection.json 에 저장
+  python detect.py 사진.jpg --out 경로/결과.json     # 출력 경로 지정 (오케스트레이터용)
 """
-import sys, json
-import modules.gpu_config  # ⚠️ torch보다 먼저
+import argparse, json
+from pathlib import Path
+import module.gpu_config  # ⚠️ torch보다 먼저
 import torch
 from PIL import Image
-from modules.detector_florence import (
+from module.detector_florence import (
     TARGETS, load_model, _find_one, _boxes_overlap
 )
 
@@ -60,10 +63,22 @@ def detect(image_path):
 
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else "samples/room.jpg"
-    result = detect(path)
-    out = "outputs/detection.json"
-    with open(out, "w", encoding="utf-8") as f:
+    parser = argparse.ArgumentParser(description="방 사진 → 가구 탐지 JSON (Florence-2)")
+    parser.add_argument("image", nargs="?", default="samples/room.jpg",
+                        help="입력 사진 경로 (기본: samples/room.jpg)")
+    parser.add_argument("--out", default="outputs/detection.json",
+                        help="출력 JSON 경로 (기본: outputs/detection.json)")
+    parser.add_argument("--quiet", action="store_true",
+                        help="JSON 본문 표준출력 생략 (파일만 저장)")
+    args = parser.parse_args()
+
+    result = detect(args.image)
+
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)  # 출력 폴더 없으면 생성
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    print(f"\n저장됨 → {out}")
+
+    if not args.quiet:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(f"\n저장됨 → {out_path}")

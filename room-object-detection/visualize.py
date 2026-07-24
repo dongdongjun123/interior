@@ -1,9 +1,9 @@
 # visualize_detection.py  (인식 결과를 원본 사진에 그려서 확인)
-import modules.gpu_config
+import module.gpu_config
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-from modules.detector_florence import (
+from module.detector_florence import (
     TARGETS, load_model, _find_one, _boxes_overlap
 )
 

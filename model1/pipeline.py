@@ -70,8 +70,10 @@ def run_rule_based_layout_step(
     analysis_model: str,
     skip_existing: bool = True,
     refine: bool | None = None,
+    detection_evidence: str | None = None,
 ) -> dict:
     # Gemini 1회: 사진 → rule-based renderer용 layout JSON
+    # detection_evidence: Florence 탐지 근거 텍스트(선택). extract 단계로 그대로 전달.
     output_dir.mkdir(parents=True, exist_ok=True)  # 출력 폴더 확보
     paths = _output_paths(image_path, output_dir)  # 산출물 경로 묶음
 
@@ -100,7 +102,9 @@ def run_rule_based_layout_step(
         )
 
     print(f"[{image_path.name}] Gemini layout 추출 중...")
-    layout = extract_rule_based_layout(client, image_path, model=analysis_model)  # 1차 layout 추출
+    layout = extract_rule_based_layout(  # 1차 layout 추출 (근거 있으면 함께 주입)
+        client, image_path, model=analysis_model, detection_evidence=detection_evidence
+    )
     refined = False  # 교정 적용 여부 플래그
     if refine:  # 자기교정이 켜져 있으면
         try:
@@ -363,16 +367,22 @@ def generate_floorplan_for_web(
     *,
     analysis_model: str | None = None,
     skip_existing: bool = True,
+    detection_evidence: str | None = None,
 ) -> dict:
     """웹(backend)용 고수준 헬퍼: 사진 한 장 → 평면도 SVG + 방 정보.
 
     내부에서 layout 추출(Gemini 1회) → 규칙 기반 SVG 렌더(무료)를 수행하고,
     backend가 바로 화면에 쓸 수 있도록 SVG 마크업과 방 정보를 함께 반환한다.
 
+    detection_evidence: Florence 탐지 근거 텍스트(선택). 있으면 layout 추출 시
+        개수·클래스를 사실로 강제하고 top-down 재판단 룰을 지시한다.
+        (근거를 새로 반영하려면 skip_existing=False 로 호출해 캐시를 건너뛸 것.)
+
     반환: {
         "svg_path": SVG 파일 경로(str),
         "svg_markup": <svg>...</svg> 문자열(HTML 삽입용),
         "aspect_ratio": 가로÷세로 비율(float 또는 None),
+        "dimensions_m": 실측 치수(m) 또는 None,
         "object_count": 배치된 가구 수(int),
     }
     """
@@ -384,10 +394,11 @@ def generate_floorplan_for_web(
     output_dir = Path(output_dir)
     model = analysis_model or os.getenv("GEMINI_ANALYSIS_MODEL", DEFAULT_ANALYSIS_MODEL)  # 분석 모델 결정
 
-    # 1) 사진 → layout JSON (Gemini 호출, 캐시 있으면 재사용)
+    # 1) 사진 → layout JSON (Gemini 호출, 캐시 있으면 재사용, 근거 있으면 주입)
     run_rule_based_layout_step(
         client, image_path, output_dir,
         analysis_model=model, skip_existing=skip_existing,
+        detection_evidence=detection_evidence,
     )
     # 2) layout JSON → SVG 파일 (Gemini 호출 없음)
     svg_meta = run_rule_based_svg_step(
@@ -398,9 +409,11 @@ def generate_floorplan_for_web(
     svg_markup = paths["rule_svg"].read_text(encoding="utf-8")  # 생성된 SVG 원문
     layout = json.loads(paths["layout"].read_text(encoding="utf-8"))  # 방 정보 추출용
 
+    room = layout.get("room") or {}
     return {
         "svg_path": svg_meta["floorplan_svg"],
         "svg_markup": svg_markup,
-        "aspect_ratio": (layout.get("room") or {}).get("aspect_ratio"),
+        "aspect_ratio": room.get("aspect_ratio"),
+        "dimensions_m": room.get("dimensions_m"),  # 실측 치수(m) — 없으면 None
         "object_count": len(layout.get("objects", [])),
     }
