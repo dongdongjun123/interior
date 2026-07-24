@@ -1,0 +1,16 @@
+Create a clean 2D architectural floor plan (strict top-down bird's-eye view) based on
+the interior photograph and the spatial analysis below.
+
+STYLE REQUIREMENTS:
+- Black lines on white background, professional architectural blueprint style
+- Walls shown as thick solid lines
+- Doors marked with standard arc swing indicators
+- Windows marked on exterior walls
+- Major furniture shown as simple top-down icons or labeled rectangles
+- Room proportions must match the analysis
+- No 3D perspective, no photorealistic rendering — only a flat 2D plan
+
+SPATIAL ANALYSIS:
+{analysis}
+
+Generate one floor plan image that accurately reflects this room layout.

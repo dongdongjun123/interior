@@ -1,0 +1,147 @@
+.furniture-choice-page {
+  max-width: 1050px;
+}
+
+.choice-header {
+  max-width: 720px;
+}
+
+.choice-step {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #777;
+}
+
+.choice-section {
+  padding: 1.5rem;
+  border: 1px solid #e4e4e4;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.choice-summary,
+.purchase-summary {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.furniture-choice-card {
+  min-height: 112px;
+  padding: 1rem;
+  border: 1px solid #dedede;
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.furniture-choice-card.is-remove {
+  border-color: #dc3545;
+  background: #fff8f8;
+}
+
+.furniture-choice-card.is-keep {
+  border-color: #222;
+}
+
+.furniture-info {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.furniture-number {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 50%;
+  background: #f1f1f1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.decision-buttons {
+  display: flex;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.purchase-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.purchase-option {
+  cursor: pointer;
+}
+
+.purchase-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.purchase-option span {
+  min-height: 52px;
+  padding: 0.8rem;
+  border: 1px solid #dedede;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.purchase-option input:checked + span {
+  border-color: #222;
+  background: #222;
+  color: #fff;
+}
+
+.empty-furniture-box {
+  padding: 2rem 1rem;
+  border: 1px dashed #cfcfcf;
+  border-radius: 14px;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .choice-section {
+    padding: 1rem;
+  }
+
+  .furniture-choice-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .decision-buttons {
+    width: 100%;
+  }
+
+  .decision-buttons label {
+    flex: 1;
+  }
+
+  .purchase-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}

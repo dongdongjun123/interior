@@ -1,0 +1,27 @@
+/* recommend.css — 가구 클릭 -> Drawer 인터랙션 관련 스타일 */
+
+.furniture-item.active-item {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(139, 94, 60, .15);
+}
+
+.offcanvas {
+  transition: transform .3s ease-in-out;
+}
+
+.similar-thumb.selected {
+  border: 2px solid var(--color-primary) !important;
+}
+
+.buy-btn {
+  transition: background-color .2s ease;
+}
+.buy-btn:active {
+  background-color: var(--color-primary-dark) !important;
+}
+
+.drawer-loading {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 2rem 0;
+}
