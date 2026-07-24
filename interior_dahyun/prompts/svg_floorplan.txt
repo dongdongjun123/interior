@@ -1,0 +1,17 @@
+Draw a 2D TOP-DOWN architectural floor plan as SVG using the photograph and
+DETAILED LAYOUT JSON below.
+
+The JSON gives exact positions in percent (0–100). You MUST follow it:
+- viewBox width:height = room width_to_depth_ratio (e.g. ratio 1.5 → "0 0 600 900")
+- For each object: svg_x = viewBox_width * x/100, svg_y = viewBox_height * y/100
+  svg_w = viewBox_width * w/100, svg_h = viewBox_height * h/100
+- Draw walls on four sides; cut window gaps where JSON walls[].windows specify
+- Do NOT add doors unless doors[] is non-empty
+- Do NOT move, omit, or invent furniture
+- Floor chairs: small rectangles at their JSON coordinates
+- White background, black strokes, short labels from object.label
+
+Output ONLY valid SVG XML (<svg>...</svg>). No markdown.
+
+DETAILED LAYOUT JSON:
+{layout_json}

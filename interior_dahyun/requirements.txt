@@ -1,0 +1,24 @@
+# ==========================================================
+# 인테리어 프로젝트 통합 의존성
+# 루트에서 한 번만: python -m venv venv && pip install -r requirements.txt
+# ==========================================================
+
+# --- Web (backend / frontend) ---
+Flask>=3.0
+Pillow>=10.0
+requests
+python-dotenv
+
+# --- model1 / model2: Gemini 평면도·무드 분석 ---
+google-genai
+ultralytics          # YOLO (backend/app.py의 가구 탐지)
+numpy
+matplotlib
+scikit-learn
+umap-learn
+tqdm
+
+# --- 무드 검색 (프롬프트 → 유사 이미지, CLIP) ---
+# torch/torchvision은 위 ultralytics가 이미 설치함
+transformers         # CLIP 이미지·텍스트 임베딩
+deep-translator      # 한글 프롬프트 → 영어 번역 (CLIP은 영어 모델)

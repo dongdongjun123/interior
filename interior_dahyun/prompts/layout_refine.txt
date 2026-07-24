@@ -1,0 +1,11 @@
+You previously produced this TOP-DOWN layout JSON from the interior PHOTO.
+Look at the photo again and CORRECT the JSON where it disagrees with the photo:
+- wrong object type; missing important object; object that isn't in the photo
+- wrong center position x,y (0–1) given the perspective
+- wrong footprint size w,h (fraction of room)
+- wrong wall assignment or room.aspect_ratio (width÷depth)
+Keep everything that is already correct unchanged.
+Return the FULL corrected JSON in the SAME schema (room, camera_view, objects). No markdown.
+
+CURRENT LAYOUT JSON:
+{layout_json}

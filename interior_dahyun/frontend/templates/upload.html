@@ -1,0 +1,102 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - Upload{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:700px;">
+
+  <p class="upload-step-label mb-1">STEP 2</p>
+  <h4 class="mb-4">방 사진 업로드</h4>
+
+  <!-- Drag & Drop 업로드 영역 -->
+  <div class="dropzone p-5 text-center mb-3" id="dropZone">
+    <div class="upload-icon mb-3" style="font-size:2rem;">📷</div>
+    <p class="mb-1">Drag &amp; Drop</p>
+    <p class="text-muted mb-3">또는</p>
+    <button type="button" class="btn btn-outline-dark rounded-pill px-4" id="chooseFileBtn">파일 선택</button>
+    <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" class="d-none">
+  </div>
+
+  <p class="text-muted small mb-4">JPG · PNG · 최대 20MB</p>
+  <p class="text-danger small mb-4 d-none" id="uploadError"></p>
+
+  <!-- 방 크기 입력 -->
+  <div class="card border-0 bg-light p-3 mb-4">
+    <h6 class="mb-1">방 크기 입력 <span class="text-muted">(선택)</span></h6>
+    <p class="text-muted small mb-3">
+      정확한 크기를 모르면 비워두고 진행할 수 있어요.
+    </p>
+
+    <div class="row g-3">
+      <div class="col-12 col-md-4">
+        <label for="roomWidth" class="form-label">가로 길이</label>
+        <div class="input-group">
+          <input
+            type="number"
+            class="form-control"
+            id="roomWidth"
+            min="0.1"
+            step="0.1"
+            placeholder="예: 4.0"
+          >
+          <span class="input-group-text">m</span>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-4">
+        <label for="roomDepth" class="form-label">세로 길이</label>
+        <div class="input-group">
+          <input
+            type="number"
+            class="form-control"
+            id="roomDepth"
+            min="0.1"
+            step="0.1"
+            placeholder="예: 5.0"
+          >
+          <span class="input-group-text">m</span>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-4">
+        <label for="ceilingHeight" class="form-label">천장 높이</label>
+        <div class="input-group">
+          <input
+            type="number"
+            class="form-control"
+            id="ceilingHeight"
+            min="0.1"
+            step="0.1"
+            placeholder="예: 2.4"
+          >
+          <span class="input-group-text">m</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 업로드 후 미리보기 (파일 선택 전에는 숨김) -->
+  <div class="preview-card p-3 d-flex align-items-center gap-3 mb-4 d-none" id="previewCard">
+    <img id="previewThumb" class="preview-thumb flex-shrink-0" style="width:80px; height:80px; object-fit:cover;" alt="미리보기">
+    <div class="flex-grow-1">
+      <p class="mb-0" id="previewName">파일명.jpg</p>
+      <small class="text-muted" id="previewSize">0MB</small>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="removeFileBtn">삭제</button>
+  </div>
+
+  <div class="text-end">
+    <button type="button" class="btn btn-dark rounded-pill px-4" id="nextBtn" disabled>다음</button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"
+        data-upload-url="{{ url_for('upload') }}"></script>
+{% endblock %}

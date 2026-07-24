@@ -1,0 +1,45 @@
+/* prompt.css — 핵심 페이지 */
+
+.prompt-textarea {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius) !important;
+  padding: 1.25rem;
+  font-size: 1.05rem;
+  background-color: var(--color-card);
+  resize: none;
+}
+.prompt-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(139, 94, 60, .12);
+}
+
+/* 추천 태그 */
+.tag-btn {
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  background-color: var(--color-card);
+  font-weight: var(--fw-semibold);
+}
+.tag-btn:hover {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+.tag-btn.active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Style Preview (Pinterest 느낌 - 살짝 랜덤한 높이감) */
+.style-preview-item {
+  border-radius: var(--radius) !important;
+  background-color: var(--color-accent) !important;
+  border: none !important;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.style-preview-item:nth-child(2) {
+  background-color: #EFE4D8 !important;
+}

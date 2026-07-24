@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+venv-linux/
+venv-win/
+.ipynb_checkpoints/
+
+# 환경변수
+.env
+
+# 생성 산출물 (재생성 가능)
+output/floorplans/*
+!output/floorplans/.gitkeep
+data/gemini_features.json
+data/gemini_embeddings.npy
+data/gemini_image_paths.json
+data/previews/umap_gemini.png
+data/clip_image_embeddings.npy
+data/clip_image_paths.json
+
+# 검색 캐시 (자동 생성)
+data/prompt_translation_cache.json
+
+# 업로드/생성 이미지 (프론트 런타임 산출물)
+frontend/static/uploads/*
+frontend/static/generated/*
+!frontend/static/uploads/.gitkeep
+!frontend/static/generated/.gitkeep
+
+# 무드 원본 데이터셋 (52MB, 394장) — 대표 샘플 3장만 커밋
+images/final/*
+!images/final/003e0ad2bc74.jpg
+!images/final/017ccbeb4150.jpg
+!images/final/01a3a801d075.JPG
+
+# YOLO 가중치 (최초 실행 시 자동 다운로드)
+*.pt

@@ -1,0 +1,335 @@
+{% extends "layout.html" %}
+
+{% block title %}
+추천 상품 선택
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .product-selection-page {
+    padding-top: 48px;
+    padding-bottom: 80px;
+  }
+
+  .product-group {
+    margin-bottom: 56px;
+  }
+
+  .product-card {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    border: 2px solid #e7e3dd;
+    border-radius: 18px;
+    background: #ffffff;
+    cursor: pointer;
+    transition:
+      border-color 0.2s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .product-card:hover {
+    transform: translateY(-3px);
+    border-color: #aaa198;
+    box-shadow:
+      0 12px 30px
+      rgba(0, 0, 0, 0.08);
+  }
+
+  .product-card-input {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 21px;
+    height: 21px;
+    z-index: 2;
+  }
+
+  .product-card:has(
+    .product-card-input:checked
+  ) {
+    border-color: #1f1f1f;
+    box-shadow:
+      0 0 0 2px
+      rgba(31, 31, 31, 0.08);
+  }
+
+  .product-image-wrap {
+    width: 100%;
+    height: 210px;
+    background: #f4f1ed;
+  }
+
+  .product-image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .product-content {
+    padding: 18px;
+  }
+
+  .product-title {
+    min-height: 48px;
+    margin-bottom: 10px;
+    font-size: 0.96rem;
+    line-height: 1.5;
+  }
+
+  .product-price {
+    margin-bottom: 4px;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  .product-shop {
+    color: #77716b;
+    font-size: 0.88rem;
+  }
+
+  .product-preview-link {
+    display: inline-block;
+    margin-top: 12px;
+    color: #333333;
+    font-size: 0.88rem;
+  }
+
+  .empty-product-box {
+    padding: 30px;
+    border: 1px dashed #cfc8c0;
+    border-radius: 16px;
+    background: #faf8f5;
+  }
+
+  .selection-submit-bar {
+    position: sticky;
+    bottom: 20px;
+    z-index: 5;
+    padding: 14px;
+    border:
+      1px solid
+      rgba(0, 0, 0, 0.08);
+    border-radius: 18px;
+    background:
+      rgba(255, 255, 255, 0.94);
+    box-shadow:
+      0 12px 36px
+      rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(10px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div
+  class="
+    container
+    product-selection-page
+  "
+>
+  <div class="mb-5">
+    <p class="text-muted small mb-2">
+      STEP 5
+    </p>
+
+    <h2 class="mb-3">
+      실제로 사용할 가구를 골라보세요
+    </h2>
+
+    <p class="text-muted mb-0">
+      선택한 상품은 수정 평면도와
+      최종 결과 화면에 함께 표시됩니다.
+    </p>
+  </div>
+
+  <form
+    method="post"
+    action="{{ url_for('generate_design') }}"
+  >
+    {% for group in product_groups %}
+      <section class="product-group">
+        <div
+          class="
+            d-flex
+            flex-wrap
+            justify-content-between
+            align-items-end
+            gap-2
+            mb-3
+          "
+        >
+          <div>
+            <h4 class="mb-1">
+              {{ group.label }}
+            </h4>
+
+            <p class="text-muted small mb-0">
+              검색어:
+              {{ group.query }}
+            </p>
+          </div>
+
+          <span
+            class="
+              badge
+              rounded-pill
+              text-bg-light
+              px-3
+              py-2
+            "
+          >
+            하나 선택
+          </span>
+        </div>
+
+        {% if group.products %}
+          <div class="row g-4">
+            {% for product in group.products %}
+              <div
+                class="
+                  col-12
+                  col-sm-6
+                  col-lg-3
+                "
+              >
+                <label class="product-card">
+                  <input
+                    type="radio"
+                    class="product-card-input"
+                    name="selected_product_{{ group.type }}"
+                    value="{{ loop.index0 }}"
+                    {% if loop.first %}
+                      checked
+                    {% endif %}
+                    required
+                  >
+
+                  <div class="product-image-wrap">
+                    {% if product.image %}
+                      <img
+                        src="{{ product.image }}"
+                        alt="{{ product.title }}"
+                      >
+                    {% else %}
+                      <div
+                        class="
+                          h-100
+                          d-flex
+                          align-items-center
+                          justify-content-center
+                          text-muted
+                        "
+                      >
+                        이미지 없음
+                      </div>
+                    {% endif %}
+                  </div>
+
+                  <div class="product-content">
+                    <div class="product-title">
+                      {{ product.title }}
+                    </div>
+
+                    <div class="product-price">
+                      {% if product.price %}
+                        {{
+                          "{:,}".format(
+                            product.price
+                          )
+                        }}원
+                      {% else %}
+                        가격 정보 없음
+                      {% endif %}
+                    </div>
+
+                    <div class="product-shop">
+                      {{
+                        product.shop
+                        or
+                        "판매처 정보 없음"
+                      }}
+                    </div>
+
+                    {% if product.link %}
+                      <a
+                        class="product-preview-link"
+                        href="{{ product.link }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        상품 페이지 미리보기 →
+                      </a>
+                    {% endif %}
+                  </div>
+                </label>
+              </div>
+            {% endfor %}
+          </div>
+
+        {% else %}
+          <div class="empty-product-box">
+            <p class="fw-semibold mb-2">
+              추천 상품을 불러오지 못했어요.
+            </p>
+
+            <p class="text-muted small mb-0">
+              네이버 API 키와 검색 결과를
+              확인해 주세요.
+            </p>
+          </div>
+        {% endif %}
+      </section>
+
+    {% else %}
+      <div class="empty-product-box mb-5">
+        <p class="fw-semibold mb-2">
+          새로 구매할 가구를 선택하지 않았어요.
+        </p>
+
+        <p class="text-muted mb-0">
+          기존 가구 선택 결과만 반영해
+          평면도를 생성할 수 있습니다.
+        </p>
+      </div>
+    {% endfor %}
+
+    <div
+      class="
+        selection-submit-bar
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+      "
+    >
+      <a
+        href="{{ url_for('furniture_choice') }}"
+        class="
+          btn
+          btn-outline-dark
+          rounded-pill
+          px-4
+        "
+      >
+        이전으로
+      </a>
+
+      <button
+        type="submit"
+        class="
+          btn
+          btn-dark
+          rounded-pill
+          px-5
+          py-2
+        "
+      >
+        선택 상품으로 평면도 만들기
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

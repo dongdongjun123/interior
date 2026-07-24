@@ -1,0 +1,55 @@
+You are an architectural space analyst. Study this interior PHOTO (perspective view) and
+produce a layout report for drawing an accurate 2D TOP-DOWN floor plan.
+
+CRITICAL RULES:
+- Perspective photos hide walls. Only describe doors/walls you can actually see or strongly infer.
+- Do NOT invent extra interior walls, doorways, or rooms.
+- Distinguish floor-level seating (low chairs, zabuton) from standard dining chairs.
+- If chairs surround a low table, say "around table on four sides" — NOT "in a row".
+
+## A. Camera view (what the photo shows)
+- Which direction is the camera facing?
+- Which wall(s) have floor-to-ceiling windows (left / center / back / right in photo)?
+- Room shape and approximate width:depth ratio
+
+## B. Top-down layout (bird's-eye, required)
+Map the room as if looking straight down. For each major item list:
+- name (bed, low_table, shelf, plant, etc.)
+- against which wall OR free-standing in room center
+- position along that wall (left third / center / right third) or floor quadrant
+- approximate size relative to room (small / medium / large)
+- for grouped items (e.g. 4 chairs): exact arrangement relative to the table
+
+## C. Layout JSON (required, valid JSON only in this block)
+```json
+{
+  "room_shape": "rectangle",
+  "width_to_depth_ratio": 1.5,
+  "window_walls": ["west", "north"],
+  "visible_door": null,
+  "furniture": [
+    {
+      "id": "bed",
+      "type": "bed",
+      "against_wall": "east",
+      "along_wall": "back",
+      "size": "large"
+    },
+    {
+      "id": "low_table",
+      "type": "table",
+      "against_wall": null,
+      "floor_position": "west_center_near_windows",
+      "size": "medium"
+    },
+    {
+      "id": "floor_chairs",
+      "type": "floor_chair",
+      "count": 4,
+      "arrangement": "one on each side of low_table"
+    }
+  ]
+}
+```
+
+Replace values with your best estimate from the photo. Use null when not visible.

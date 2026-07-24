@@ -1,0 +1,75 @@
+/* result.css — 가장 중요한 페이지 */
+
+.result-image {
+  border-radius: var(--radius-lg) !important;
+  background-color: var(--color-accent) !important;
+  border: none !important;
+  transition: transform .25s ease;
+}
+
+.result-image-zoomed {
+  transform: scale(1.03);
+  box-shadow: var(--shadow-hover);
+}
+
+.result-actions .btn {
+  padding: .6rem 1.5rem;
+}
+
+.ai-description {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.style-badge {
+  background-color: var(--color-accent);
+  color: var(--color-text);
+  font-weight: var(--fw-semibold);
+  padding: .5rem 1rem;
+}
+
+/* 가구 아이템 */
+.furniture-item {
+  border-radius: var(--radius) !important;
+  background-color: var(--color-card) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-card);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.furniture-item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--color-primary) !important;
+}
+
+/* 가구 추천 Drawer */
+.offcanvas {
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+.offcanvas-header {
+  border-color: var(--color-border) !important;
+}
+.offcanvas-title {
+  font-weight: var(--fw-bold);
+}
+
+.drawer-thumb {
+  border-radius: var(--radius) !important;
+  background-color: var(--color-accent) !important;
+  border: none !important;
+}
+
+.drawer-price {
+  color: var(--color-primary);
+  font-size: 1.25rem;
+}
+
+.similar-thumb {
+  border-radius: var(--radius-sm) !important;
+  background-color: #F1ECE6 !important;
+  border: none !important;
+}

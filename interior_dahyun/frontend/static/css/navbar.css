@@ -1,0 +1,35 @@
+/* navbar.css */
+
+.navbar {
+  background-color: var(--color-card) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .03);
+  padding-top: .9rem;
+  padding-bottom: .9rem;
+}
+
+.navbar-brand {
+  color: var(--color-primary) !important;
+  font-weight: var(--fw-bold);
+  letter-spacing: -.2px;
+}
+
+.navbar-nav .nav-link {
+  color: var(--color-text) !important;
+  font-weight: var(--fw-semibold);
+  padding-left: .75rem;
+  padding-right: .75rem;
+}
+
+.navbar-nav .nav-link:hover {
+  color: var(--color-primary) !important;
+}
+
+/* 프로필 원형 아이콘 */
+.navbar [style*="border-radius"] ,
+.navbar .rounded-circle {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent) !important;
+  color: var(--color-primary-dark);
+  font-weight: var(--fw-semibold);
+}
