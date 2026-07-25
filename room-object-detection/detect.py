@@ -4,7 +4,7 @@
   python detect.py samples/room.jpg                 # 기본: outputs/detection.json 에 저장
   python detect.py 사진.jpg --out 경로/결과.json     # 출력 경로 지정 (오케스트레이터용)
 """
-import argparse, json
+import argparse, json, os, sys
 from pathlib import Path
 import module.gpu_config  # ⚠️ torch보다 먼저
 import torch
@@ -14,7 +14,22 @@ from module.detector_florence import (
 )
 
 
+def _require_gpu_enabled() -> bool:
+    """ROOMDET_REQUIRE_GPU 스위치(1/true/yes면 켜짐). GPU 없는 CPU 저속 실행 방지용."""
+    return os.getenv("ROOMDET_REQUIRE_GPU", "").strip().lower() in ("1", "true", "yes")
+
+
 def detect(image_path):
+    # GPU 강제 옵션이 켜져 있는데 CUDA가 없으면, 비정상 종료해 오케스트레이터가
+    # "근거 없이 진행"으로 자연스럽게 떨어지게 한다(CPU에서 수 분씩 걸리는 것 방지).
+    if _require_gpu_enabled() and not torch.cuda.is_available():
+        print(
+            "[florence] ROOMDET_REQUIRE_GPU=1 인데 CUDA GPU가 없습니다. "
+            "탐지를 건너뜁니다(CPU 실행 방지). CPU로도 돌리려면 ROOMDET_REQUIRE_GPU=0.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     model, processor = load_model()
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     image = Image.open(image_path).convert("RGB")
