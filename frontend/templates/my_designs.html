@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - My Designs{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 640px;">
+  <section class="my-5 text-center">
+    <div style="font-size: 3rem;">🗂️</div>
+    <h1 class="mt-3 mb-2">내 디자인</h1>
+    <p class="lead text-muted">
+      저장한 디자인을 모아 보는 공간이에요.
+    </p>
+
+    <div class="p-4 mt-4"
+         style="border: 1px dashed #cdd3dc; border-radius: 16px; background: #fff;">
+      <p class="fw-semibold mb-1">준비 중인 기능입니다.</p>
+      <p class="text-muted small mb-0">
+        로그인과 디자인 저장 기능이 추가되면, 여기에서 지난 작업을 다시 열어볼 수 있어요.
+      </p>
+    </div>
+
+    <div class="mt-5">
+      <a href="{{ url_for('start') }}" class="btn btn-lg btn-hero-start">
+        새 디자인 시작하기 →
+      </a>
+    </div>
+  </section>
+</div>
+{% endblock %}
