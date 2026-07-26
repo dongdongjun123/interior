@@ -14,10 +14,12 @@
     <h1>AI가 만드는<br>나만의 인테리어</h1>
     <p class="lead">방 사진 한 장으로 우리집 평면도를 만들고<br class="d-none d-md-block">원하는 스타일로 인테리어를 완성해보세요.</p>
 
-    <!-- Hero 이미지 자리 (크게) -->
-    <div class="hero-image border d-flex align-items-center justify-content-center mx-auto my-4"
-         style="max-width:800px; height:320px;">
-      <span class="text-muted">[ Hero 이미지 자리 ]</span>
+    <!-- Hero 이미지 -->
+    <div class="hero-image mx-auto my-4"
+         style="max-width:800px; height:320px; overflow:hidden;">
+      <img src="{{ url_for('mood_image', filename='ed1c1ef1400a.jpg') }}"
+           alt="밝고 아늑한 미니멀 침실 인테리어"
+           style="width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block;">
     </div>
 
     <a href="{{ url_for('start') }}" class="btn btn-lg btn-hero-start">
