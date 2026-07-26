@@ -17,7 +17,10 @@ AI Interior - Result
 
 <style>
   .floorplan-result-card {
-    height: 420px;
+    /* 고정 420px는 큰 화면에서 평면도가 작게 보였다.
+       뷰포트 높이 기반으로 키우되(최대 640px) 과하게 커지지 않게 제한. */
+    height: min(70vh, 640px);
+    min-height: 420px;
     padding: 1rem;
     border: 1px solid #dedede;
     border-radius: 16px;
