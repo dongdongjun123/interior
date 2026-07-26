@@ -665,6 +665,20 @@ def index():
     )
 
 
+@app.route("/home")
+def home():
+    """
+    로고 클릭용: 진행하던 세션을 지우고 초기 화면(홈)으로 돌아간다.
+    (/start 는 세션을 지운 뒤 프롬프트로 가지만, 로고는 홈으로 보낸다.)
+    """
+
+    session.clear()
+
+    return redirect(
+        url_for("index")
+    )
+
+
 @app.route("/start")
 def start():
     """
