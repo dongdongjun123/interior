@@ -1,8 +1,16 @@
 // result 화면: 가구 유지/제거를 클릭하면 즉시 서버에 반영하고 수정 평면도를 다시 그린다.
 (function () {
-  const planImg = document.getElementById("modifiedPlanImg");
+  const planBox = document.getElementById("modifiedPlanBox");
   const cards = document.querySelectorAll(".selection-summary-card[data-source-index]");
   if (!cards.length) return;
+
+  // AJAX로 받은 새 SVG markup으로 평면도를 교체하고 드래그를 다시 붙인다.
+  function replacePlan(markup) {
+    if (planBox && markup) {
+      planBox.innerHTML = markup;
+      if (window.initFloorplanDrag) window.initFloorplanDrag();
+    }
+  }
 
   async function toggle(card, decision) {
     const si = card.getAttribute("data-source-index");
@@ -29,10 +37,8 @@
       const removed = data.decision === "remove";
       keepBtn.className = "btn " + (removed ? "btn-outline-secondary" : "btn-dark");
       removeBtn.className = "btn " + (removed ? "btn-danger" : "btn-outline-danger");
-      // 평면도 이미지 교체 (캐시 방지 쿼리 추가)
-      if (planImg && data.svg_url) {
-        planImg.src = data.svg_url + "?t=" + Date.now();
-      }
+      // 평면도 SVG 교체 + 드래그 재바인딩
+      replacePlan(data.svg_markup);
     } catch (err) {
       console.error("toggle 네트워크 오류:", err);
     } finally {

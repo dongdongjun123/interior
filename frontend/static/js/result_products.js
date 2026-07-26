@@ -5,7 +5,7 @@
   const searchBtn = document.getElementById("productSearchBtn");
   const status = document.getElementById("productSearchStatus");
   const results = document.getElementById("productResults");
-  const planImg = document.getElementById("modifiedPlanImg");
+  const planBox = document.getElementById("modifiedPlanBox");
   if (!searchBtn || !results) return;
 
   const won = (n) => (n ? Number(n).toLocaleString() + "원" : "가격 정보 없음");
@@ -67,8 +67,11 @@
       });
       const data = await res.json();
       if (!data.ok) { btn.textContent = "실패"; console.error(data.error); return; }
-      // 평면도 교체 (캐시 방지)
-      if (planImg && data.svg_url) planImg.src = data.svg_url + "?t=" + Date.now();
+      // 평면도 SVG 교체 + 드래그 재바인딩
+      if (planBox && data.svg_markup) {
+        planBox.innerHTML = data.svg_markup;
+        if (window.initFloorplanDrag) window.initFloorplanDrag();
+      }
       btn.className = "btn btn-sm btn-success mt-auto add-btn";
       btn.textContent = "추가됨 ✓";
     } catch (err) {

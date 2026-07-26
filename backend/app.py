@@ -1583,6 +1583,21 @@ def product_selection():
 # ──────────────────────────────────────────────────────
 # 수정 평면도 생성
 # ──────────────────────────────────────────────────────
+def read_generated_svg(filename):
+    """generated 폴더의 SVG 파일 내용(markup)을 읽어 반환. 없으면 None.
+    result 화면 인라인 삽입 및 AJAX 응답에 사용(가구 드래그를 위해 img 대신 인라인 SVG)."""
+    if not filename:
+        return None
+    path = os.path.join(GENERATED_DIR, os.path.basename(filename))
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
 def create_modified_floorplan(
     furniture_choices,
     selected_products,
@@ -2119,7 +2134,7 @@ def toggle_furniture():
 
     return jsonify({
         "ok": True,
-        "svg_url": url_for("static", filename=f"generated/{svg_filename}"),
+        "svg_markup": read_generated_svg(svg_filename),
         "decision": decision,
     })
 
@@ -2185,7 +2200,7 @@ def add_product():
 
     return jsonify({
         "ok": True,
-        "svg_url": url_for("static", filename=f"generated/{svg_filename}"),
+        "svg_markup": read_generated_svg(svg_filename),
         "product": {"type": item_type, "title": title, "marker": marker},
     })
 
@@ -2247,6 +2262,10 @@ def result():
         )
     )
 
+    modified_file = session.get("modified_floorplan_file")
+    # 가구 드래그를 위해 수정 평면도는 img 대신 인라인 SVG로 넣는다.
+    modified_svg_markup = read_generated_svg(modified_file)
+
     return render_template(
         "result.html",
         generated_file=(
@@ -2259,11 +2278,8 @@ def result():
                 "original_floorplan_file"
             )
         ),
-        modified_floorplan_file=(
-            session.get(
-                "modified_floorplan_file"
-            )
-        ),
+        modified_floorplan_file=modified_file,
+        modified_svg_markup=modified_svg_markup,
         furniture_choices=(
             furniture_choices
         ),
