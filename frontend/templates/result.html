@@ -120,9 +120,10 @@ AI Interior - Result
         선택 반영 평면도
       </h5>
 
-      <div class="floorplan-result-card">
+      <div class="floorplan-result-card" id="modifiedPlanCard">
         {% if modified_floorplan_file %}
           <img
+            id="modifiedPlanImg"
             src="{{ url_for(
               'static',
               filename='generated/' + modified_floorplan_file
@@ -161,30 +162,20 @@ AI Interior - Result
               align-items-center
               gap-3
             "
+            data-source-index="{{ choice.source_index }}"
           >
             <span>
               {{ choice.item }}
             </span>
 
-            {% if choice.decision == 'remove' %}
-              <span
-                class="
-                  decision-badge
-                  decision-remove
-                "
-              >
-                제거
-              </span>
-            {% else %}
-              <span
-                class="
-                  decision-badge
-                  decision-keep
-                "
-              >
-                유지
-              </span>
-            {% endif %}
+            <div class="btn-group btn-group-sm furniture-toggle" role="group">
+              <button type="button"
+                class="btn {{ 'btn-dark' if choice.decision != 'remove' else 'btn-outline-secondary' }}"
+                data-decision="keep">유지</button>
+              <button type="button"
+                class="btn {{ 'btn-danger' if choice.decision == 'remove' else 'btn-outline-danger' }}"
+                data-decision="remove">제거</button>
+            </div>
           </div>
         </div>
       {% else %}
@@ -464,5 +455,12 @@ AI Interior - Result
     filename='js/recommend.js'
   ) }}"
   data-recommend-url="{{ url_for('recommend') }}"
+></script>
+
+<script
+  src="{{ url_for(
+    'static',
+    filename='js/result_toggle.js'
+  ) }}"
 ></script>
 {% endblock %}

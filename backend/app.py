@@ -665,6 +665,35 @@ def index():
     )
 
 
+@app.route("/gallery")
+def gallery():
+    # 무드 라이브러리(images/final) 사진을 그리드로 보여준다.
+    from mood_pipeline.preprocess import collect_image_paths
+
+    try:
+        paths = collect_image_paths(MOOD_IMAGE_ROOT)
+    except Exception:
+        paths = []
+    # /mood-image/<filename> 라우트로 서빙되므로 IMAGE_ROOT 기준 상대경로만 넘긴다.
+    images = [
+        str(p.relative_to(MOOD_IMAGE_ROOT)).replace("\\", "/")
+        for p in paths[:60]  # 첫 화면 과부하 방지로 60장까지만
+    ]
+    return render_template("gallery.html", images=images, total=len(paths))
+
+
+@app.route("/my-designs")
+def my_designs():
+    # 로그인/저장 기능은 아직 없으므로 준비중 안내 페이지.
+    return render_template("my_designs.html")
+
+
+@app.route("/about")
+def about():
+    # 서비스 소개 정적 페이지.
+    return render_template("about.html")
+
+
 @app.route("/home")
 def home():
     """
@@ -2050,6 +2079,51 @@ def generate_design():
 
 
 # ──────────────────────────────────────────────────────
+@app.route("/toggle-furniture", methods=["POST"])
+def toggle_furniture():
+    """result 화면에서 가구 유지/제거를 즉시 토글하고 수정 평면도를 다시 만든다.
+    요청(JSON): {"source_index": int, "decision": "keep"|"remove"}
+    응답(JSON): {"ok": bool, "svg_url": 새 SVG URL, "decision": 반영된 값}
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        target_si = int(data.get("source_index"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "잘못된 가구 식별자"}), 400
+    decision = data.get("decision")
+    if decision not in ("keep", "remove"):
+        return jsonify({"ok": False, "error": "잘못된 선택값"}), 400
+
+    # 세션 furniture_choices에서 해당 가구의 decision을 갱신
+    furniture_choices = session.get("furniture_choices", [])
+    found = False
+    for choice in furniture_choices:
+        if choice.get("source_index") == target_si:
+            choice["decision"] = decision
+            found = True
+            break
+    if not found:
+        return jsonify({"ok": False, "error": "가구를 찾을 수 없습니다"}), 404
+    session["furniture_choices"] = furniture_choices
+
+    # 선택 상품(있으면)과 함께 수정 평면도 재생성
+    selected_products = load_json_cache(
+        session.get("selected_products_file"), default=[]
+    )
+    svg_filename = create_modified_floorplan(
+        furniture_choices, selected_products
+    )
+    if not svg_filename:
+        return jsonify({"ok": False, "error": "수정 평면도 생성 실패"}), 500
+    session["modified_floorplan_file"] = svg_filename
+
+    return jsonify({
+        "ok": True,
+        "svg_url": url_for("static", filename=f"generated/{svg_filename}"),
+        "decision": decision,
+    })
+
+
 # 결과 화면
 # ──────────────────────────────────────────────────────
 @app.route("/result")
