@@ -27,6 +27,11 @@
     checklistItems.forEach((item, index) => {
       const icon = item.querySelector(".check-icon");
 
+      // 이미 완료(✓)로 확정된 단계는 되돌리지 않는다.
+      if (item.classList.contains("done")) {
+        return;
+      }
+
       item.classList.remove("active");
 
       if (index === stepIndex) {
@@ -49,18 +54,47 @@
     showStep(currentStep);
 
     /*
-     * 실제 세부 분석 상태를 서버에서 받는 구조는 아직 없으므로,
-     * 분석 항목을 순서대로 강조하여 작업 중임을 안내한다.
+     * 서버가 세부 진행 상태를 실시간으로 알려주지는 않지만, 실제 파이프라인은
+     * (layout 추출 → 자기교정 → SVG 렌더) 순으로 앞으로만 진행한다.
+     * 그래서 체크리스트도 되돌아가지 않고 앞으로만 나아가다가,
+     * 마지막 단계(평면도 생성)에서 fetch 완료를 기다린다.
+     * - 지나온 단계는 ✓(done)로 확정, 현재 단계만 ●(active).
+     * - Gemini 호출 2회가 대부분의 시간을 차지하므로 앞 단계는 여유 있게 배분.
      */
-    stageTimer = window.setInterval(() => {
-      currentStep = (currentStep + 1) % checklistItems.length;
-      showStep(currentStep);
-    }, 1400);
+    const lastStep = checklistItems.length - 1;
+    // 단계별 머무는 시간(ms): 업로드 확인은 짧게, 분석 단계는 Gemini 호출을 감안해 길게.
+    const stepDurations = [900, 3200, 3200];
+
+    function advance(step) {
+      if (step > lastStep) {
+        return; // 마지막 단계 도달 → 완료(fetch)까지 여기서 대기
+      }
+      // 지나온 단계를 done(✓)으로 확정
+      for (let i = 0; i < step; i += 1) {
+        const icon = checklistItems[i].querySelector(".check-icon");
+        checklistItems[i].classList.remove("active");
+        checklistItems[i].classList.add("done");
+        if (icon) {
+          icon.textContent = "✓";
+        }
+      }
+      currentStep = step;
+      showStep(step);
+
+      if (step < lastStep) {
+        stageTimer = window.setTimeout(
+          () => advance(step + 1),
+          stepDurations[step] || 2500
+        );
+      }
+    }
+
+    advance(0);
   }
 
   function showCompletedState() {
     if (stageTimer) {
-      window.clearInterval(stageTimer);
+      window.clearTimeout(stageTimer);
     }
 
     checklistItems.forEach((item) => {
@@ -94,7 +128,7 @@
 
   function showError(message) {
     if (stageTimer) {
-      window.clearInterval(stageTimer);
+      window.clearTimeout(stageTimer);
     }
 
     if (progressBar) {
