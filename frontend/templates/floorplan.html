@@ -138,3 +138,9 @@
   </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script
+  src="{{ url_for('static', filename='js/floorplan_drag.js') }}"
+></script>
+{% endblock %}

@@ -1067,7 +1067,7 @@ def bed(o: PlacedObject) -> str:
         f'fill="#f1eadc" stroke="{STYLE["thin"]}"/>'
         f'<rect x="{x + 44 + (w - 70) / 2}" y="{y + 26}" width="{(w - 70) / 2}" height="46" '
         f'rx="8" fill="#f1eadc" stroke="{STYLE["thin"]}"/>'
-        f'{label(x + w / 2, y + h / 2 + 18, o["label"], 17)}</g>'
+        f'</g>'
     )
 
 
@@ -1083,7 +1083,7 @@ def rug(o: PlacedObject) -> str:
         f'<rect x="{x + 14}" y="{y + 14}" width="{w - 28}" height="{h - 28}" fill="none" '
         f'stroke="#c7a47a" stroke-dasharray="3 5"/>'
         f'{"".join(tass)}'
-        f'{label(x + w / 2, y + h / 2 + 5, o["label"], 17)}</g>'
+        f'</g>'
     )
 
 
@@ -1100,7 +1100,7 @@ def wood(o: PlacedObject) -> str:
         f"{lines}"
         f'<rect x="{x + 6}" y="{y + 6}" width="{w - 12}" height="{h - 12}" rx="4" '
         f'fill="none" stroke="#8b6f50" opacity="0.6"/>'
-        f'{label(x + w / 2, y + h / 2 + 5, o["label"], 16)}</g>'
+        f'</g>'
     )
 
 
@@ -1125,7 +1125,7 @@ def round_obj(o: PlacedObject) -> str:
         f'stroke="{STYLE["line"]}" stroke-width="2"/>'
         f'<path d="M {cx - 16} {cy - 4} q 10 10 20 0" stroke="#9ca3af" fill="none"/>'
         f'<path d="M {cx - 12} {cy + 12} q 8 -8 18 0" stroke="#9ca3af" fill="none"/>'
-        f'{label(cx, y + h + 22, o["label"], 14)}</g>'
+        f'</g>'
     )
 
 
@@ -1138,7 +1138,7 @@ def mirror(o: PlacedObject) -> str:
         f'fill="{STYLE["glass"]}" stroke="#94a3b8"/>'
         f'<line x1="{x + 12}" y1="{y + h - 28}" x2="{x + w - 12}" y2="{y + 18}" '
         f'stroke="#fff" stroke-width="2"/>'
-        f'{label(x + w + 26, y + h / 2, o["label"], 16, "start")}</g>'
+        f'</g>'
     )
 
 
@@ -1160,7 +1160,7 @@ def stool(o: PlacedObject) -> str:
         f'fill="#e5e1da" stroke="{STYLE["line"]}" stroke-width="2"/>'
         f'<rect x="{x + 14}" y="{y + 14}" width="{w - 28}" height="{h - 28}" rx="14" '
         f'fill="#d9d6cf" stroke="#9ca3af"/>'
-        f'{label(x + w / 2, y + h / 2 + 5, o["label"], 15)}</g>'
+        f'</g>'
     )
 
 
@@ -1194,7 +1194,7 @@ def generic(o: PlacedObject) -> str:
     return (
         f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="#f8fafc" '
         f'stroke="{STYLE["line"]}" stroke-width="2"/>'
-        f'{label(x + w / 2, y + h / 2 + 5, o["label"], 15)}</g>'
+        f'</g>'
     )
 
 
@@ -1346,8 +1346,17 @@ def draw_obj(
         )
     )
 
+    # 드래그 이동용 식별자·플래그. 벽 고정 요소(창/문/러그)는 드래그 대상에서 제외.
+    idx = obj.get("idx")
+    draggable = obj["type"] not in ("window", "door", "rug")
+    data_attrs = f' data-source="{source}"'
+    if idx is not None:
+        data_attrs += f' data-index="{idx}"'
+    if draggable:
+        data_attrs += ' data-draggable="1"'
+
     return (
-        f'<g data-source="{source}">'
+        f'<g{data_attrs}>'
         f'{selected_product_outline(obj)}'
         f'{object_svg}'
         f'{selected_product_marker(obj)}'
