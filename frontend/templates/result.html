@@ -147,6 +147,38 @@ AI Interior - Result
   </div>
 
   <section class="mb-5">
+    <h5 class="mb-3">상품 추가</h5>
+    <p class="text-muted small mb-3">
+      원하는 가구를 검색해 평면도에 추가할 수 있어요. 가구 종류를 고르고 검색해 보세요.
+    </p>
+
+    <div class="row g-2 align-items-center mb-3" style="max-width: 720px;">
+      <div class="col-4 col-md-3">
+        <select id="productType" class="form-select">
+          <option value="chair">의자</option>
+          <option value="desk">책상</option>
+          <option value="table">테이블</option>
+          <option value="shelf">선반</option>
+          <option value="cabinet">수납장</option>
+          <option value="lamp">조명</option>
+          <option value="rug">러그</option>
+          <option value="plant">식물</option>
+        </select>
+      </div>
+      <div class="col">
+        <input id="productQuery" type="text" class="form-control"
+               placeholder="예: 원목 의자, 스탠드 조명">
+      </div>
+      <div class="col-auto">
+        <button id="productSearchBtn" type="button" class="btn btn-dark">검색</button>
+      </div>
+    </div>
+
+    <div id="productSearchStatus" class="text-muted small mb-2"></div>
+    <div id="productResults" class="row g-3"></div>
+  </section>
+
+  <section class="mb-5">
     <h5 class="mb-3">
       가구 선택 요약
     </h5>
@@ -461,6 +493,13 @@ AI Interior - Result
   src="{{ url_for(
     'static',
     filename='js/result_toggle.js'
+  ) }}"
+></script>
+
+<script
+  src="{{ url_for(
+    'static',
+    filename='js/result_products.js'
   ) }}"
 ></script>
 {% endblock %}

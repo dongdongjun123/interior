@@ -2124,6 +2124,72 @@ def toggle_furniture():
     })
 
 
+@app.route("/search-products", methods=["GET"])
+def search_products():
+    """result 화면에서 직접 상품을 검색한다.
+    쿼리: ?q=검색어  응답: {ok, products:[{title,link,image,price,shop}]}"""
+    query = (request.args.get("q") or "").strip()
+    if not query:
+        return jsonify({"ok": False, "error": "검색어를 입력해 주세요."}), 400
+    try:
+        products = search_naver_shopping(query, display=6)
+    except ValueError as exc:  # 네이버 키 미설정 등
+        return jsonify({"ok": False, "error": str(exc)}), 503
+    except Exception as exc:
+        print(f"[search-products] 검색 실패: {exc}")
+        return jsonify({"ok": False, "error": "상품 검색에 실패했습니다."}), 502
+    return jsonify({"ok": True, "products": products})
+
+
+@app.route("/add-product", methods=["POST"])
+def add_product():
+    """검색한 상품을 선택해 평면도에 새 가구로 추가한다.
+    요청(JSON): {type, title, link, image}
+    type은 PURCHASE_LABELS의 가구 종류여야 평면도에 반영된다.
+    응답(JSON): {ok, svg_url, product}
+    """
+    data = request.get_json(silent=True) or {}
+    item_type = data.get("type")
+    if item_type not in PURCHASE_LABELS:
+        return jsonify({
+            "ok": False,
+            "error": "가구 종류를 선택해 주세요(의자/책상/테이블/선반/수납장/조명/러그/식물).",
+        }), 400
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"ok": False, "error": "상품 정보가 없습니다."}), 400
+
+    # 기존 selected_products에 새 상품을 append (marker는 순번)
+    selected_products = load_json_cache(
+        session.get("selected_products_file"), default=[]
+    )
+    marker = len(selected_products) + 1
+    selected_products.append({
+        "type": item_type,
+        "title": title,
+        "link": data.get("link"),
+        "image": data.get("image"),
+        "marker": marker,
+    })
+    selected_filename = save_json_cache("selected_products", selected_products)
+    session["selected_products_file"] = selected_filename
+
+    # 평면도 재생성 (유지/제거 선택 + 새 상품 반영)
+    furniture_choices = session.get("furniture_choices", [])
+    svg_filename = create_modified_floorplan(
+        furniture_choices, selected_products
+    )
+    if not svg_filename:
+        return jsonify({"ok": False, "error": "수정 평면도 생성 실패"}), 500
+    session["modified_floorplan_file"] = svg_filename
+
+    return jsonify({
+        "ok": True,
+        "svg_url": url_for("static", filename=f"generated/{svg_filename}"),
+        "product": {"type": item_type, "title": title, "marker": marker},
+    })
+
+
 # 결과 화면
 # ──────────────────────────────────────────────────────
 @app.route("/result")
