@@ -166,10 +166,11 @@ def _load_index():
     # 캐시된 이미지 임베딩·경로를 메모리로 로드 (최초 1회)
     global _INDEX_EMB, _INDEX_PATHS
     if _INDEX_EMB is None:
+        # 인덱스 캐시가 없으면 자동으로 빌드한다(첫 검색 시 1회, images/final 전체 임베딩 — 수 분).
+        # clone 직후처럼 캐시가 없어도 무드 검색이 동작하게 하기 위함. 한 번 만들면 파일로 캐시됨.
         if not CLIP_IMAGE_EMBEDDINGS_PATH.exists():
-            raise FileNotFoundError(
-                "이미지 인덱스가 없습니다. 먼저 build_image_index()를 실행하세요."
-            )
+            print("[search] 이미지 인덱스 캐시 없음 → 자동 빌드 시작(최초 1회, 수 분 소요)…")
+            build_image_index()
         _INDEX_EMB = np.load(CLIP_IMAGE_EMBEDDINGS_PATH)
         _INDEX_PATHS = json.loads(CLIP_IMAGE_PATHS_PATH.read_text(encoding="utf-8"))
     return _INDEX_EMB, _INDEX_PATHS
