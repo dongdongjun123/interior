@@ -151,6 +151,192 @@ PURCHASE_POSITIONS = [
 
 
 # ──────────────────────────────────────────────────────
+# 상품 실측 크기 추출
+#
+# 네이버 쇼핑 API에는 크기 필드가 없다(title/lprice/mallName/category만
+# 준다). 다만 가구 상품은 제목에 치수를 적는 관행이 있어 거기서 뽑는다.
+#   "...테이블 4인용 D750XW1200XH720"  -> 1200 x 750 mm
+#   "[두닷] 콰트로 책상 1800x800mm"      -> 1800 x  800 mm
+#   "...러그 ... 180x220cm"            -> 1800 x 2200 mm
+#   "...침대 프레임 SS(슈퍼싱글)"          -> 1100 x 2000 mm (규격표)
+#
+# 실측(상품 80개): 이 방식으로 31%에서 치수를 얻는다.
+# 침대 100% / 책상 60% / 러그 50% / 선반 30%, 의자·테이블은 0%.
+# 못 찾으면 None을 돌려주고 렌더러 표준 크기를 그대로 쓴다.
+# ──────────────────────────────────────────────────────
+
+# 침대·매트리스 규격명 -> (가로mm, 세로mm).
+# 긴 이름이 짧은 이름을 포함하므로("슈퍼싱글" ⊃ "싱글") 검사 순서가 중요하다.
+BED_SIZE_SPECS = {
+    "라지킹": (1800, 2000),
+    "슈퍼싱글": (1100, 2000),
+    "패밀리": (2000, 2000),
+    "싱글": (1000, 2000),
+    "더블": (1400, 2000),
+    "퀸": (1500, 2000),
+    "킹": (1600, 2000),
+    "ss": (1100, 2000),
+    "sss": (1100, 2000),
+}
+
+# 방 한 변으로 볼 수 있는 현실적인 가구 치수 범위(mm)
+MIN_FURNITURE_MM = 150
+MAX_FURNITURE_MM = 4000
+
+
+def _mm_pair_ok(a, b):
+    return (
+        MIN_FURNITURE_MM <= a <= MAX_FURNITURE_MM
+        and MIN_FURNITURE_MM <= b <= MAX_FURNITURE_MM
+    )
+
+
+def parse_product_dimensions(title):
+    """상품 제목에서 (가로mm, 세로mm)를 추출한다.
+
+    세로를 못 구하면 d_mm은 None이다(가로만 반영).
+    아무것도 못 찾으면 None.
+    """
+    if not title:
+        return None
+
+    text = clean_html(str(title))
+
+    # 1) D750XW1200XH720 — 축 라벨이 붙은 표기
+    match = re.search(
+        r"[Dd]\s*(\d{2,4})\s*[xX*×]\s*[Ww]\s*(\d{2,4})",
+        text,
+    )
+    if match:
+        depth, width = (
+            int(match.group(1)),
+            int(match.group(2)),
+        )
+        if _mm_pair_ok(width, depth):
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": match.group(0),
+            }
+
+    match = re.search(
+        r"[Ww]\s*(\d{2,4})\s*[xX*×]\s*[Dd]\s*(\d{2,4})",
+        text,
+    )
+    if match:
+        width, depth = (
+            int(match.group(1)),
+            int(match.group(2)),
+        )
+        if _mm_pair_ok(width, depth):
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": match.group(0),
+            }
+
+    # 2) 1800x800mm / 180x220cm — 라벨 없는 두 축
+    match = re.search(
+        r"(\d{2,4})\s*[xX*×]\s*(\d{2,4})\s*(cm|CM|㎝|mm|MM|㎜)?",
+        text,
+    )
+    if match:
+        first, second = (
+            int(match.group(1)),
+            int(match.group(2)),
+        )
+        unit = (match.group(3) or "").lower()
+
+        # 단위가 없으면 값 크기로 판단한다. 가구 치수를 세 자리 미만으로
+        # 적으면 cm 관행(180x220), 세 자리 이상이면 mm(1800x800).
+        if unit in ("cm", "㎝") or (
+            not unit and max(first, second) < 300
+        ):
+            first, second = first * 10, second * 10
+
+        if _mm_pair_ok(first, second):
+            return {
+                "w_mm": first,
+                "d_mm": second,
+                "raw": match.group(0),
+            }
+
+    # 3) 침대 규격명 — 긴 이름부터 검사(부분 문자열 오인 방지)
+    lowered = text.lower()
+    for name in sorted(
+        BED_SIZE_SPECS,
+        key=len,
+        reverse=True,
+    ):
+        if name in lowered:
+            width, depth = BED_SIZE_SPECS[name]
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": name,
+            }
+
+    # 4) 1800mm — 한 축만 적힌 경우. 가로로 보고 세로는 표준 비율에 맡긴다.
+    match = re.search(
+        r"(\d{3,4})\s*(?:mm|MM|㎜)\b",
+        text,
+    )
+    if match:
+        width = int(match.group(1))
+        if MIN_FURNITURE_MM <= width <= 3000:
+            return {
+                "w_mm": width,
+                "d_mm": None,
+                "raw": match.group(0),
+            }
+
+    return None
+
+
+def product_size_fractions(
+    title,
+    room_width_m,
+    room_depth_m,
+):
+    """상품 치수를 방 크기 대비 0~1 비율로 바꾼다.
+
+    방 실측(m)이 없으면 비율을 계산할 기준이 없으므로 None을 돌려준다.
+    """
+    if not room_width_m or not room_depth_m:
+        return None
+
+    try:
+        room_w_mm = float(room_width_m) * 1000
+        room_d_mm = float(room_depth_m) * 1000
+    except (TypeError, ValueError):
+        return None
+
+    if room_w_mm <= 0 or room_d_mm <= 0:
+        return None
+
+    dims = parse_product_dimensions(title)
+    if not dims:
+        return None
+
+    w_frac = dims["w_mm"] / room_w_mm
+    d_frac = (
+        dims["d_mm"] / room_d_mm
+        if dims["d_mm"]
+        else None
+    )
+
+    # 방을 넘어서는 값은 파싱 오류로 본다(예: 상품코드를 치수로 오인).
+    if w_frac > 0.9 or (d_frac and d_frac > 0.9):
+        return None
+
+    return {
+        "w": round(w_frac, 4),
+        "h": round(d_frac, 4) if d_frac else 0.0,
+        "raw": dims["raw"],
+    }
+
+
+# ──────────────────────────────────────────────────────
 # 공통 유틸리티
 # ──────────────────────────────────────────────────────
 def allowed_file(filename: str) -> bool:
@@ -1644,6 +1830,11 @@ def create_modified_floorplan(
             if index not in remove_indices
         ]
 
+        # 상품 치수를 방 대비 비율로 바꾸는 데 쓸 방 실측(m).
+        room_data = layout.get("room") or {}
+        room_width_m = room_data.get("width_m")
+        room_depth_m = room_data.get("depth_m")
+
         for order, product in enumerate(
             selected_products
         ):
@@ -1662,6 +1853,14 @@ def create_modified_floorplan(
                     PURCHASE_POSITIONS
                 )
             ]
+
+            # 상품 제목에 치수가 적혀 있으면 실제 크기로 그린다.
+            # (없거나 방 실측이 없으면 0.0 -> 렌더러 표준 크기)
+            size = product_size_fractions(
+                product.get("title"),
+                room_width_m,
+                room_depth_m,
+            )
 
             marker = product.get(
                 "marker",
@@ -1683,8 +1882,16 @@ def create_modified_floorplan(
                     ),
                     "x": x,
                     "y": y,
-                    "w": 0.0,
-                    "h": 0.0,
+                    "w": (
+                        size["w"]
+                        if size
+                        else 0.0
+                    ),
+                    "h": (
+                        size["h"]
+                        if size
+                        else 0.0
+                    ),
                     "wall": wall_map.get(
                         item_type,
                         "none",
@@ -1705,6 +1912,12 @@ def create_modified_floorplan(
                     ),
                     "product_marker": (
                         marker
+                    ),
+                    # 제목에서 읽어낸 치수 원문(툴팁 표시용).
+                    "size_note": (
+                        size["raw"]
+                        if size
+                        else None
                     ),
                 }
             )

@@ -53,6 +53,10 @@
     if (d.typeName && d.typeName !== name) {
       rows.push(["종류", d.typeName]);
     }
+    // 상품 제목에서 읽어낸 실측 치수가 있으면 먼저 보여준다.
+    if (d.sizeNote) {
+      rows.push(["실측", d.sizeNote]);
+    }
     if (d.areaPct) {
       rows.push(["방 대비", d.areaPct + "%"]);
     }

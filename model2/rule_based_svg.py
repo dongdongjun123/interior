@@ -810,6 +810,10 @@ def normalize_objects(
                         "product_title"
                     )
                 ),
+                # 상품 제목에서 읽어낸 실측 치수 원문(툴팁 표시용)
+                "size_note": (
+                    obj.get("size_note")
+                ),
             }
         )
 
@@ -1553,6 +1557,11 @@ def draw_obj(
         data_attrs += (
             f' data-product-link='
             f'"{escape(str(obj["product_link"]))}"'
+        )
+    if obj.get("size_note"):
+        data_attrs += (
+            f' data-size-note='
+            f'"{escape(str(obj["size_note"]))}"'
         )
 
     # SVG 기본 툴팁도 함께 둔다(JS가 실패해도 이름은 보이게).
