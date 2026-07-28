@@ -9,7 +9,7 @@ import numpy as np  # 임베딩 배열 인덱싱·유사도 계산
 from PIL import Image  # 이미지 열기·크기 검증
 from tqdm import tqdm  # 진행률 표시 (현재 미사용, 확장용)
 
-from .config import (
+from shared.config import (
     DATA_DIR,
     DEDUP_SIMILARITY,
     IMAGE_EXTENSIONS,

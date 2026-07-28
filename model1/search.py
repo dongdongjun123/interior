@@ -11,7 +11,7 @@ import re
 
 import numpy as np
 
-from .config import (
+from shared.config import (
     BATCH_SIZE,
     CLIP_IMAGE_EMBEDDINGS_PATH,
     CLIP_IMAGE_PATHS_PATH,

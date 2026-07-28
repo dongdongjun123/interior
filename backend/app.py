@@ -28,10 +28,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from model1 import interior_to_floorplan as floorplan_model
-from mood_pipeline import rule_based_svg
-from mood_pipeline import search as mood_search
-from mood_pipeline.config import IMAGE_ROOT as MOOD_IMAGE_ROOT
+from model2 import interior_to_floorplan as floorplan_model
+from model2 import rule_based_svg
+from model1 import search as mood_search
+from shared.config import IMAGE_ROOT as MOOD_IMAGE_ROOT
 
 
 # 실행 위치와 관계없이 프로젝트 루트의 .env 파일을 읽는다.
@@ -668,7 +668,7 @@ def index():
 @app.route("/gallery")
 def gallery():
     # 무드 라이브러리(images/final) 사진을 그리드로 보여준다.
-    from mood_pipeline.preprocess import collect_image_paths
+    from model1.preprocess import collect_image_paths
 
     try:
         paths = collect_image_paths(MOOD_IMAGE_ROOT)

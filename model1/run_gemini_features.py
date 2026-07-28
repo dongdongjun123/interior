@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from mood_pipeline.gemini_extract import (
+from model1.gemini_extract import (
     plot_gemini_umap,
     run_gemini_extraction,
 )

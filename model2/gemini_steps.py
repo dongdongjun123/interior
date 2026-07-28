@@ -124,7 +124,7 @@ def generate_floorplan_svg(
 
 def _build_layout_schema() -> types.Schema:
     # Gemini 응답을 강제할 layout JSON 스키마 정의 (구조화 출력용)
-    from mood_pipeline.rule_based_svg import LAYOUT_OBJECT_TYPES  # 허용 가구 타입 목록
+    from model2.rule_based_svg import LAYOUT_OBJECT_TYPES  # 허용 가구 타입 목록
 
     num = lambda: types.Schema(type=types.Type.NUMBER)  # noqa: E731  # 숫자 필드 축약 헬퍼
     # 가구 하나를 나타내는 객체 스키마 (타입·라벨·좌표·크기·벽·신뢰도)
@@ -195,7 +195,7 @@ def extract_rule_based_layout(
     # 사진 → rule-based 렌더러용 layout JSON을 Gemini로 추출.
     # detection_evidence: Florence 탐지 근거 텍스트(선택). 있으면 프롬프트에 덧붙여
     #   개수·클래스를 사실로 강제하고 top-down 재판단 룰을 지시한다(없으면 기존 동작).
-    from mood_pipeline.rule_based_svg import RULE_BASED_LAYOUT_PROMPT, extract_json_from_text  # 전용 프롬프트·파서
+    from model2.rule_based_svg import RULE_BASED_LAYOUT_PROMPT, extract_json_from_text  # 전용 프롬프트·파서
 
     prompt = RULE_BASED_LAYOUT_PROMPT
     if detection_evidence:  # 근거가 있으면 프롬프트 뒤에 근거 블록을 덧붙인다
@@ -229,7 +229,7 @@ def refine_layout(
     thinking_budget: int | None = None,
 ) -> dict:
     """자기교정 패스(API 1회 추가): 1차 layout을 사진과 대조해 오류만 수정."""
-    from mood_pipeline.rule_based_svg import extract_json_from_text  # JSON 파서
+    from model2.rule_based_svg import extract_json_from_text  # JSON 파서
 
     payload = json.dumps(  # 교정 대상인 현재 layout을 JSON 문자열로 직렬화
         {

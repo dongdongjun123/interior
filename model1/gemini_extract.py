@@ -15,7 +15,7 @@ from google import genai
 from google.genai import types
 from PIL import Image
 
-from .config import (
+from shared.config import (
     DATA_DIR,
     GEMINI_EMBEDDINGS_PATH,
     GEMINI_FEATURE_MODEL,

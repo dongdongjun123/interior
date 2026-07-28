@@ -15,7 +15,7 @@ LAYOUT_OBJECT_TYPES = [
 ]
 
 # 프롬프트는 코드에 하드코딩하지 않고 프로젝트 루트 prompts/*.txt에서 읽어온다.
-# rule_based_svg.py는 mood_pipeline/ 안에 있으므로 부모의 부모가 프로젝트 루트.
+# rule_based_svg.py는 model2/ 안에 있으므로 부모의 부모가 프로젝트 루트.
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 

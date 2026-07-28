@@ -1,7 +1,7 @@
 # 인테리어 프로젝트 — 레포 구조
 
 `interior/`는 **단일 git 레포**로, 관심사별로 폴더를 분리했습니다.
-프론트/백엔드/model1/model2가 한 프로세스에서 서로 import하므로 **가상환경·requirements는 루트 하나**로 통일합니다.
+프론트/백엔드/model1(사진 추천)/model2(평면도)가 한 프로세스에서 서로 import하므로 **가상환경·requirements는 루트 하나**로 통일합니다.
 
 ## 최종 구조
 
@@ -14,38 +14,41 @@ interior/
 │       └── uploads/ generated/  # 런타임 산출물 (gitignore, .gitkeep만 커밋)
 │
 ├── backend/                   # Flask 서버 (라우팅·API·DB)
-│   ├── app.py                 # 진입점. model1·mood_pipeline import, 네이버쇼핑 API + YOLO 가구탐지
+│   ├── app.py                 # 진입점. model1·model2·shared import, 네이버쇼핑 API + YOLO 가구탐지
 │   ├── ai_backend.py          # 이미지 생성 헬퍼
 │   └── database.py            # 가구/평면도 mock 데이터
 │                              # (yolov8n.pt: YOLO 가중치는 첫 실행 시 자동 다운로드)
 │
-├── model1/                    # 사진 → 2D 평면도 생성 (Gemini) — 역할별 모듈로 분리
+├── model1/                    # ① 프롬프트 → 무드 사진 추천 (CLIP)
+│   ├── __init__.py
+│   ├── search.py              # 프롬프트 → 유사 이미지 top-K (CLIP 코사인 유사도)
+│   ├── preprocess.py          # 이미지 수집·전처리
+│   ├── gemini_extract.py      # Gemini 특징 추출 + UMAP 2D 시각화(분석용)
+│   ├── run_gemini_features.py # gemini_extract 실행 래퍼(CLI)
+│   └── notebooks/06_gemini_features.ipynb
+│
+├── model2/                    # ② 사진 → 2D 평면도 생성 (Gemini + 규칙 렌더러)
 │   ├── __init__.py
 │   ├── interior_to_floorplan.py  # 하위 호환 re-export 레이어 (기존 import 경로 유지)
-│   ├── config.py              # 상수·.env 로드·프롬프트 로드(load_prompt)
+│   ├── config.py              # model2 상수·.env 로드·프롬프트 로드(load_prompt)
 │   ├── client.py              # Gemini 클라이언트 생성·API 재시도(429/503)
 │   ├── io_utils.py            # 파일/이미지 IO·산출물 경로·캐시 판정·텍스트 파서
 │   ├── gemini_steps.py        # Gemini 저수준 호출(분석/평면도/layout/SVG/교정)
-│   ├── pipeline.py            # 고수준 단계(run_*_step)·convert_image·generate_floorplan_for_web
+│   ├── pipeline.py            # 고수준 단계(run_*_step)·generate_floorplan_for_web
+│   ├── analysis_to_layout.py  # 분석 결과 → 렌더러용 layout 변환
+│   ├── detection_evidence.py  # Florence 탐지 → Gemini 근거 텍스트
+│   ├── rule_based_svg.py      # layout JSON → 아이소메트릭 SVG 렌더러(무료)
 │   ├── render.py              # 노트북 시각화(matplotlib/HTML)
 │   └── cli.py                 # CLI main() — 배치 처리 진입점
 │
-├── model2/                    # 무드 특징 추출 실행 스크립트·노트북
-│   ├── run_gemini_features.py # mood_pipeline.gemini_extract 실행 래퍼
-│   └── notebooks/06_gemini_features.ipynb
+├── shared/                    # ⭐ model1·model2·backend 공용 설정
+│   ├── __init__.py
+│   └── config.py              # PROJECT_ROOT 및 경로·모델 상수, 무드 vocab
 │
-├── mood_pipeline/             # ⭐ 루트 공용 패키지 (model1·model2·backend 공유)
-│   ├── config.py              # PROJECT_ROOT 및 경로·모델 상수, 무드 vocab
-│   ├── gemini_extract.py      # Gemini 특징 추출 + UMAP
-│   ├── search.py              # 프롬프트 → 유사 이미지 검색(CLIP)
-│   ├── rule_based_svg.py      # layout JSON → SVG 렌더러(무료), 프롬프트는 루트 prompts에서 로드
-│   ├── analysis_to_layout.py
-│   └── preprocess.py
-│
-├── prompts/                   # ⭐ 모든 Gemini 프롬프트 (*.txt) — model1·mood_pipeline 공유
+├── prompts/                   # ⭐ 모든 Gemini 프롬프트 (*.txt)
 │   ├── analysis.txt  floorplan.txt  layout_detail.txt
-│   ├── layout_refine.txt  svg_floorplan.txt   # ← model1
-│   └── rule_based_layout.txt                  # ← mood_pipeline/rule_based_svg
+│   ├── layout_refine.txt  svg_floorplan.txt   # ← model2/config.load_prompt
+│   └── rule_based_layout.txt                  # ← model2/rule_based_svg
 │
 ├── room-object-detection/     # Florence-2 가구 탐지 (별도 환경 — transformers 4.49 고정)
 │   ├── detect.py              # 사진 → 가구 바운딩박스 JSON (--out 지정 가능)
@@ -67,19 +70,21 @@ interior/
 
 ## 경로 규칙 (왜 이렇게 배치했나)
 
-- **`mood_pipeline`은 루트 공용 패키지** → model1의 `from mood_pipeline.config import ...`가 그대로 동작.
-- **`mood_pipeline/config.py`의 `PROJECT_ROOT = 파일.parent.parent` = interior 루트.**
+- **폴더 번호 = 파이프라인 순서.** model1이 고른 사진이 model2의 입력이 된다.
+  (프롬프트 → `model1/search.py`로 사진 추천 → 사진 업로드 → `model2/pipeline.py`로 평면도)
+- **`shared`는 두 모델이 함께 쓰는 설정만** 둔다 → `from shared.config import ...`.
+- **`shared/config.py`의 `PROJECT_ROOT = 파일.parent.parent` = interior 루트.**
   그래서 `images/`, `data/`, `output/`, `prompts/`를 **루트 레벨**에 둬야 config 경로와 맞음.
 - **프롬프트는 코드에 하드코딩하지 않고 루트 `prompts/*.txt`에서 로드**한다.
-  model1(`config.load_prompt`)과 mood_pipeline(`rule_based_svg.load_prompt`)이 같은 폴더를 공유.
-- **`.env`는 각 모듈 import 시점에 먼저 로드**한다(`model1/config.py`, `mood_pipeline/gemini_extract.py`).
+  `model2/config.load_prompt`와 `model2/rule_based_svg.load_prompt`가 같은 폴더를 공유.
+- **`.env`는 각 모듈 import 시점에 먼저 로드**한다(`model2/config.py`, `model1/gemini_extract.py`).
   CLI 직접 실행이든 backend 경유든 `os.getenv(...)`가 항상 `.env` 값을 읽도록 하기 위함.
 - `backend/app.py`는 프론트가 분리됐으므로 `Flask(template_folder=../frontend/templates, static_folder=../frontend/static)`.
 - YOLO 가중치는 `backend/yolov8n.pt` (없으면 ultralytics가 자동 다운로드).
 
-## model1 모듈 관계
+## model2 모듈 관계
 
-`backend/app.py`와 노트북은 여전히 `from model1 import interior_to_floorplan`으로 쓸 수 있습니다.
+`backend/app.py`와 노트북은 `from model2 import interior_to_floorplan`으로 쓸 수 있습니다.
 `interior_to_floorplan.py`가 아래 모듈들의 공개 이름을 전부 re-export하는 **호환 레이어**이기 때문입니다.
 
 ```
@@ -100,9 +105,9 @@ interior_to_floorplan.py (호환 레이어, re-export)
 | 키 | 용도 | 기본값 |
 |---|---|---|
 | `GEMINI_API_KEY` | Gemini 인증 (필수) | — |
-| `GEMINI_ANALYSIS_MODEL` | model1 공간 분석 모델 | `gemini-2.5-flash` |
-| `GEMINI_IMAGE_MODEL` | model1 평면도 이미지 모델 | `gemini-2.5-flash-image` |
-| `GEMINI_FEATURE_MODEL` | model2 특징 추출 모델 | `gemini-2.5-flash-lite` |
+| `GEMINI_ANALYSIS_MODEL` | model2 공간 분석 모델 | `gemini-2.5-flash` |
+| `GEMINI_IMAGE_MODEL` | model2 평면도 이미지 모델 | `gemini-2.5-flash-image` |
+| `GEMINI_FEATURE_MODEL` | model1 특징 추출 모델 | `gemini-2.5-flash-lite` |
 | `GEMINI_THINKING_BUDGET` | 공간추론 thinking 예산(토큰) | `4096` |
 | `GEMINI_LAYOUT_REFINE` | layout 자기교정 패스(0=끄기) | `1` |
 | `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | backend 가구 추천(네이버 쇼핑) | — |
@@ -123,10 +128,10 @@ cp .env.example .env           # 그리고 GEMINI_API_KEY / NAVER_* 채우기
 cd backend
 python app.py                  # http://127.0.0.1:5000
 
-# 3) 모델 스크립트 (반드시 루트에서 — mood_pipeline import 때문)
+# 3) 모델 스크립트 (반드시 루트에서 — model1/model2/shared import 때문)
 cd interior
-python -m model1.cli --help                 # 평면도 생성 (구: model1/interior_to_floorplan.py도 동작)
-python model2/run_gemini_features.py --help # 무드 특징 추출
+python -m model2.cli --help                 # 평면도 생성 (구: model2/interior_to_floorplan.py도 동작)
+python model1/run_gemini_features.py --help # 무드 특징 추출
 
 # 4) Florence 근거주입 오케스트레이터 (루트에서). ROOMDET_PYTHON 비우면 Florence 없이 Gemini만.
 python orchestration/run_floorplan.py <사진경로>
@@ -142,5 +147,5 @@ python orchestration/run_floorplan.py <사진경로>
 - **`room-object-detection`은 메인 venv와 의존성이 충돌**한다(transformers 4.49 vs 5.x).
   그래서 한 프로세스로 합치지 않고, 오케스트레이터가 별도 환경의 python을 subprocess로 호출한다.
   두 환경의 접점은 `detection.json` 파일 하나뿐 → 의존성 충돌이 원천 차단된다.
-- Florence 탐지(`room-object-detection`)와 무드 검색(`mood_pipeline/search.py`)은 모두 CLIP/Florence를
+- Florence 탐지(`room-object-detection`)와 무드 검색(`model1/search.py`)은 모두 CLIP/Florence를
   쓰지만 서로 다른 경로다. 무드 검색은 메인 venv에서, Florence는 별도 환경에서 돈다.

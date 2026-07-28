@@ -9,7 +9,7 @@
 #   - render.py       : 노트북 시각화
 #   - cli.py          : CLI main()
 #
-# 기존 `from model1 import interior_to_floorplan` 코드가 그대로 동작하도록
+# 기존 `from model2 import interior_to_floorplan` 코드가 그대로 동작하도록
 # 공개 이름을 모두 여기서 다시 노출한다.
 from __future__ import annotations
 
