@@ -555,8 +555,26 @@ def conf_threshold(object_type: str) -> float:
     return CONF_MIN.get(object_type, CONF_MIN_DEFAULT)
 
 
+# 그릴 심볼이 없는 타입은 평면도에 넣지 않는다.
+#
+# 예전에는 generic()으로 빈 사각형을 그렸는데, 사진에 실제로 뭐가 있는지
+# 알려주지 못하면서 자리만 차지하고 겹침 해소까지 밀어냈다. 정체를 모르는
+# 것(unknown: wall art, desk basket 등)이나 도면 심볼이 없는 것은
+# "정보 없음"이므로 아예 비워 두는 편이 정확하다.
+#
+# window/door는 심볼 대신 전용 그리기 함수가 있어 예외로 둔다.
+DRAWN_WITHOUT_SYMBOL = {"window", "door"}
+
+
+def has_drawable_symbol(object_type: str) -> bool:
+    if object_type in DRAWN_WITHOUT_SYMBOL:
+        return True
+    name = SYMBOL_FOR_TYPE.get(object_type)
+    return bool(name) and name in load_symbols()
+
+
 def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """부분품 병합, 저신뢰 객체 제거, 벽당 창문 1개, low_table 주변 chair → floor_chair."""
+    """부분품 병합, 저신뢰·미지원 객체 제거, 벽당 창문 1개, chair → floor_chair."""
     objects = merge_subparts(objects)
     filtered: list[dict[str, Any]] = []
     lamp_count = 0
@@ -568,6 +586,9 @@ def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, 
 
         # 타입별 임계값 미달 → 그 가구로 인정하지 않는다.
         if conf < conf_threshold(t):
+            continue
+        # 그릴 심볼이 없으면 빈 사각형 대신 그냥 넣지 않는다.
+        if not has_drawable_symbol(t):
             continue
         if t == "lamp":
             lamp_count += 1
@@ -1145,14 +1166,6 @@ def door(o: PlacedObject) -> str:
     )
 
 
-def generic(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    return (
-        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" '
-        f'fill="none" stroke="{STYLE["line"]}" stroke-width="1.5" rx="2"/>'
-    )
-
-
 # ──────────────────────────────────────────────────────
 # 가구 심볼 렌더 — Freepik "loft plan" 벡터에서 잘라낸 평면 심볼을
 # <defs><symbol>으로 한 번 정의하고 가구마다 <use>로 배치한다.
@@ -1170,7 +1183,7 @@ SYMBOL_DIR = (
 SYMBOL_CREDIT = "가구 심볼: Designed by Freepik"
 
 # 렌더러 타입 -> 심볼 파일 이름(확장자 제외).
-# 심볼이 없는 타입은 generic(사각형)으로 떨어진다.
+# 여기 없는 타입은 그리지 않는다(빈 사각형을 놓지 않는다).
 SYMBOL_FOR_TYPE = {
     "bed": "bed",
     "desk": "desk",
@@ -1183,6 +1196,7 @@ SYMBOL_FOR_TYPE = {
     "stool": "stool",
     "rug": "rug",
     "plant": "plant",
+    "lamp": "lamp",
     "mirror": "nightstand",     # 벽면 사각 프레임으로 재사용
 }
 
@@ -1246,11 +1260,15 @@ def symbol_defs(objects: list[PlacedObject]) -> str:
 
 
 def symbol_obj(o: PlacedObject) -> str:
-    """가구 하나를 심볼로 그린다. 심볼이 없으면 사각형으로 대체."""
+    """가구 하나를 심볼로 그린다.
+
+    심볼이 없으면 아무것도 그리지 않는다. 빈 사각형을 놓으면 사진에 무엇이
+    있었는지 알려주지 못하면서 자리만 차지한다(정보 없음 = 비워 두기).
+    """
     name = SYMBOL_FOR_TYPE.get(o["type"])
     symbols = load_symbols()
     if not name or name not in symbols:
-        return generic(o)
+        return ""
 
     x, y, w, h = o["x"], o["y"], o["w"], o["h"]
     _, vw, vh = symbols[name]
@@ -1439,12 +1457,17 @@ def draw_obj(
 ) -> str:
     drawer = DRAWERS.get(
         obj["type"],
-        generic,
+        symbol_obj,
     )
 
     object_svg = drawer(
         obj
     )
+
+    # 그릴 게 없으면(심볼 미보유) 빈 <g>도 남기지 않는다.
+    # 빈 사각형은 사진에 없는 정보를 있는 것처럼 보이게 한다.
+    if not object_svg:
+        return ""
 
     source = escape(
         str(
