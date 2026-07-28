@@ -869,16 +869,33 @@ _GROUP_TABLES = {"table", "low_table"}
 _ACCESSORY = {"lamp", "plant"}
 _ACC_SURFACES = {"desk", "table", "low_table", "shelf", "cabinet"}
 
+# 의도된 조합이라도 이 비율을 넘게 파묻히면 "박힌 것"으로 보고 떼어놓는다.
+# (의자가 식탁에 살짝 물리는 건 자연스럽지만, 절반 이상 잠기면 배치가 깨져 보인다.)
+GROUP_OVERLAP_MAX = 0.35
+
+
+def _overlap_frac_px(a: PlacedObject, b: PlacedObject) -> float:
+    """픽셀 좌표(x,y = 좌상단) 기준, 작은 쪽 면적 중 겹치는 비율(0~1)."""
+    ix = min(a["x"] + a["w"], b["x"] + b["w"]) - max(a["x"], b["x"])
+    iy = min(a["y"] + a["h"], b["y"] + b["h"]) - max(a["y"], b["y"])
+    if ix <= 0 or iy <= 0:
+        return 0.0
+    smaller = min(a["w"] * a["h"], b["w"] * b["h"])
+    if smaller <= 0:
+        return 0.0
+    return ix * iy / smaller
+
 
 def _grouped_pair(a: PlacedObject, b: PlacedObject) -> bool:
     # 인접/포개짐이 의도된 조합은 서로 밀어내지 않는다:
     #  - 테이블 주변의 의자
     #  - 책상/선반 위에 올려둔 조명·화분(그리기 순서상 위에 얹혀 보임)
+    # 단, 얕게 물릴 때만 면제한다. 깊게 파묻힌 건 의도가 아니라 배치 오류다.
     ta, tb = a["type"], b["type"]
     if (ta in _GROUP_TABLES and tb in _GROUP_SEATING) or (
         tb in _GROUP_TABLES and ta in _GROUP_SEATING
     ):
-        return True
+        return _overlap_frac_px(a, b) <= GROUP_OVERLAP_MAX
     if (ta in _ACCESSORY and tb in _ACC_SURFACES) or (
         tb in _ACCESSORY and ta in _ACC_SURFACES
     ):
