@@ -1,4 +1,4 @@
-# model1 설정: 상수·.env 로드·프롬프트 로드
+# model2(사진 -> 평면도) 설정: 상수·.env 로드·프롬프트 로드
 from __future__ import annotations
 
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from mood_pipeline.config import PROJECT_ROOT
+from shared.config import PROJECT_ROOT
 
 # .env를 import 시점에 먼저 로드해야 아래 os.getenv(...)들이 .env 값을 읽는다.
 # (CLI 직접 실행 등 backend를 안 거치는 경로에서도 .env가 반영되도록)
@@ -21,7 +21,7 @@ MAX_API_RETRIES = 5
 DEFAULT_THINKING_BUDGET = int(os.getenv("GEMINI_THINKING_BUDGET", "4096"))
 
 # 프롬프트는 코드에 하드코딩하지 않고 프로젝트 루트 prompts/*.txt에서 읽어온다.
-# (mood_pipeline과 동일한 위치를 공유 — rule_based_svg.py 참고)
+# (shared/config.py와 동일한 위치를 공유 — rule_based_svg.py 참고)
 PROMPTS_DIR = PROJECT_ROOT / "prompts"
 
 

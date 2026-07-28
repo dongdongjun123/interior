@@ -1,7 +1,7 @@
-# 무드 라이브러리 파이프라인 공통 설정
+# model1(사진 추천) / model2(평면도) 공용 설정
 from pathlib import Path  # 파일·폴더 경로 처리
 
-# 프로젝트 루트 (mood_pipeline/ 의 상위 폴더)
+# 프로젝트 루트 (shared/ 의 상위 폴더)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # 클러스터링 대상 원본 이미지 폴더
 IMAGE_ROOT = PROJECT_ROOT / "images" / "final"

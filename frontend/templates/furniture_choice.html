@@ -19,7 +19,7 @@ AI Interior - Furniture Choice
 
   <div class="choice-header mb-4">
     <p class="choice-step mb-2">
-      STEP 4
+      선택 단계
     </p>
 
     <h3 class="mb-2">
@@ -28,15 +28,16 @@ AI Interior - Furniture Choice
 
     <p class="text-muted mb-0">
       현재 방에서 유지할 가구와 제거할 가구를 선택해 주세요.
-      새로 구매하고 싶은 가구도 함께 선택할 수 있어요.
+      결과 화면에서도 언제든 바꿀 수 있어요.
     </p>
   </div>
 
   <form
     method="POST"
-    action="{{ url_for('product_selection') }}"
+    action="{{ url_for('generate_design') }}"
     id="furnitureChoiceForm"
   >
+    <input type="hidden" name="from_furniture_choice" value="1">
 
     <section class="choice-section mb-5">
       <div

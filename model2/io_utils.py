@@ -8,7 +8,7 @@ from pathlib import Path
 
 from google.genai import types
 
-from mood_pipeline.config import IMAGE_EXTENSIONS
+from shared.config import IMAGE_EXTENSIONS
 
 
 def _guess_mime(path: Path) -> str:
@@ -104,7 +104,7 @@ def _rule_layout_cache_valid(path: Path) -> bool:
 
 def _rule_layout_needs_coerce(path: Path) -> bool:
     """구 layout_detail v2(0~100) 등 — render 시 coerce_layout_v3 필요."""
-    from mood_pipeline.rule_based_svg import _is_percent_coords  # 퍼센트 좌표 판별 함수
+    from model2.rule_based_svg import _is_percent_coords  # 퍼센트 좌표 판별 함수
 
     if not path.exists():  # 파일 없으면 변환 불필요
         return False
@@ -122,8 +122,8 @@ def _rule_layout_needs_coerce(path: Path) -> bool:
 
 def _rule_svg_cache_valid(layout_path: Path, svg_path: Path) -> bool:
     # rule-based SVG 캐시가 최신 layout·렌더러 버전과 일치하는지 검사
-    from mood_pipeline import rule_based_svg  # 렌더러 모듈(파일 경로 확인용)
-    from mood_pipeline.rule_based_svg import RENDERER_VERSION  # 현재 렌더러 버전 문자열
+    from model2 import rule_based_svg  # 렌더러 모듈(파일 경로 확인용)
+    from model2.rule_based_svg import RENDERER_VERSION  # 현재 렌더러 버전 문자열
 
     if not svg_path.exists() or svg_path.stat().st_size <= 100:  # 파일 없거나 빈 파일이면 무효
         return False
@@ -137,7 +137,7 @@ def _rule_svg_cache_valid(layout_path: Path, svg_path: Path) -> bool:
             return False
     except OSError:  # 읽기 실패 시 무효
         return False
-    # mood_pipeline은 프로젝트 루트의 공용 패키지 → 모듈 실제 위치를 직접 사용
+    # 렌더러 모듈의 실제 위치를 직접 사용
     renderer_src = Path(rule_based_svg.__file__).resolve()  # 렌더러 소스 파일 경로
     if renderer_src.exists() and svg_path.stat().st_mtime < renderer_src.stat().st_mtime:  # 렌더러가 SVG보다 최신이면 무효
         return False

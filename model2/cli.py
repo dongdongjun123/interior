@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from mood_pipeline.config import IMAGE_ROOT
+from shared.config import IMAGE_ROOT
 
 from .client import _get_client
 from .config import (

@@ -15,7 +15,7 @@ LAYOUT_OBJECT_TYPES = [
 ]
 
 # 프롬프트는 코드에 하드코딩하지 않고 프로젝트 루트 prompts/*.txt에서 읽어온다.
-# rule_based_svg.py는 mood_pipeline/ 안에 있으므로 부모의 부모가 프로젝트 루트.
+# rule_based_svg.py는 model2/ 안에 있으므로 부모의 부모가 프로젝트 루트.
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 
@@ -1111,151 +1111,174 @@ def generic(o: PlacedObject) -> str:
     )
 
 
-ISO_K = 0.5          # y축 압축비(2:1 아이소메트릭)
-# 타입별 높이 계수 — 바닥 짧은 변(min(w,h), 최대 120) 대비.
-# 실제 가구 높이 비율에 맞춰 침대는 낮고 선반은 높게.
-ISO_HEIGHT = {
-    "bed": 0.34,
-    "shelf": 1.60,
-    "cabinet": 1.15,
-    "table": 0.62,
-    "low_table": 0.30,
-    "desk": 0.66,
-    "mirror": 1.45,
-    "lamp": 1.05,
-    "stool": 0.45,
-    "chair": 0.80,
-    "floor_chair": 0.30,
-    "unknown": 0.55,
+# ──────────────────────────────────────────────────────
+# 가구 심볼 렌더 — Freepik "loft plan" 벡터에서 잘라낸 평면 심볼을
+# <defs><symbol>으로 한 번 정의하고 가구마다 <use>로 배치한다.
+# 모양은 도면 심볼, 위치·크기는 layout이 계산하므로 드래그·겹침해소·
+# 상품연동이 그대로 동작한다.
+# 출처 표기 의무: frontend/static/floorplan-symbols/LICENSE.txt
+# ──────────────────────────────────────────────────────
+SYMBOL_DIR = (
+    Path(__file__).resolve().parent.parent
+    / "frontend"
+    / "static"
+    / "floorplan-symbols"
+)
+
+SYMBOL_CREDIT = "가구 심볼: Designed by Freepik"
+
+# 렌더러 타입 -> 심볼 파일 이름(확장자 제외).
+# 심볼이 없는 타입은 generic(사각형)으로 떨어진다.
+SYMBOL_FOR_TYPE = {
+    "bed": "bed",
+    "desk": "desk",
+    "table": "table",
+    "low_table": "round_rug",   # 낮은 원형 테이블로 재사용
+    "shelf": "shelf",
+    "cabinet": "cabinet",
+    "chair": "chair",
+    "floor_chair": "chair",     # 좌식도 의자 심볼 — 스툴(빈 원)은 구분이 안 됨
+    "stool": "stool",
+    "rug": "rug",
+    "plant": "plant",
+    "mirror": "nightstand",     # 벽면 사각 프레임으로 재사용
 }
 
+# 배치 박스와 심볼의 긴 변 방향이 반대일 때 90도 돌리는 타입.
+# 벽에 붙는 길쭉한 가구는 방향이 중요해 회전이 도움이 된다.
+# 침대는 제외 — 머리 방향이 뒤집혀 오히려 어색해진다(비율 유지로 처리).
+ROTATABLE = {"desk", "cabinet", "shelf", "rug", "mirror"}
 
-def _iso_pts(x: float, y: float, w: float, h: float):
-    """바닥 사각형 -> 아이소메트릭 평행사변형 4점.
+_SYMBOL_CACHE: dict[str, tuple[str, float, float]] | None = None
 
-    45° 회전이 아니라 전단(shear)이다. 회전시키면 폭보다 깊은 가구
-    (벽 수납장 90x336 등)가 위아래로 뾰족한 다이아몬드가 되어
-    '눕힌 사각형'으로 읽히지 않는다. 전단은 가로 변을 수평으로
-    유지하므로 어떤 비율에서도 상판이 상판으로 보인다.
 
-    반환 순서: 뒤왼 -> 뒤오른 -> 앞오른 -> 앞왼 (시계방향)
+def _parse_symbol(text: str) -> tuple[str, float, float]:
+    """심볼 SVG에서 (본문, viewBox 폭, viewBox 높이)를 뽑는다."""
+    m = re.search(r'viewBox="([\d.\-\s]+)"', text)
+    vw = vh = 100.0
+    if m:
+        nums = [float(v) for v in m.group(1).split()]
+        if len(nums) == 4:
+            vw, vh = nums[2], nums[3]
+    body = re.search(r"<svg[^>]*>(.*)</svg>", text, re.S)
+    inner = body.group(1).strip() if body else ""
+    inner = re.sub(r"<!--.*?-->", "", inner, flags=re.S).strip()
+    return inner, vw, vh
+
+
+def load_symbols() -> dict[str, tuple[str, float, float]]:
+    """심볼 파일을 한 번만 읽어 캐시한다."""
+    global _SYMBOL_CACHE
+    if _SYMBOL_CACHE is None:
+        cache: dict[str, tuple[str, float, float]] = {}
+        if SYMBOL_DIR.is_dir():
+            for path in sorted(SYMBOL_DIR.glob("*.svg")):
+                try:
+                    cache[path.stem] = _parse_symbol(
+                        path.read_text(encoding="utf-8")
+                    )
+                except OSError:
+                    continue
+        _SYMBOL_CACHE = cache
+    return _SYMBOL_CACHE
+
+
+def symbol_defs(objects: list[PlacedObject]) -> str:
+    """이 평면도에 실제로 쓰인 심볼만 <defs>에 넣는다."""
+    symbols = load_symbols()
+    used: list[str] = []
+    for obj in objects:
+        name = SYMBOL_FOR_TYPE.get(obj["type"])
+        if name and name in symbols and name not in used:
+            used.append(name)
+    if not used:
+        return ""
+    parts = []
+    for name in used:
+        inner, vw, vh = symbols[name]
+        parts.append(
+            f'<symbol id="sym-{name}" '
+            f'viewBox="0 0 {vw:g} {vh:g}">{inner}</symbol>'
+        )
+    return f"<defs>{''.join(parts)}</defs>"
+
+
+def symbol_obj(o: PlacedObject) -> str:
+    """가구 하나를 심볼로 그린다. 심볼이 없으면 사각형으로 대체."""
+    name = SYMBOL_FOR_TYPE.get(o["type"])
+    symbols = load_symbols()
+    if not name or name not in symbols:
+        return generic(o)
+
+    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
+    _, vw, vh = symbols[name]
+
+    # 심볼 원본이 가로/세로 중 어느 쪽으로 긴지와 배치 방향이 다르면 회전.
+    rotate = (
+        o["type"] in ROTATABLE
+        and (w > h) != (vw > vh)
+        and abs(w - h) > 8
+    )
+    # 심볼 원본 비율을 지켜 배치 박스 안에 맞춘다(meet + 중앙).
+    # 안 지키면 원형 식탁이 타원으로, 침대가 늘어난 사각형으로 찌그러진다.
+    fit = 'preserveAspectRatio="xMidYMid meet"'
+
+    if rotate:
+        # 90도 회전. 회전 전에는 (h x w) 크기로 그려야 회전 후 배치 박스에
+        # 들어맞는다. 중심을 축으로 돌리므로 좌상단은 중심에서 절반만큼 뺀다.
+        cx, cy = x + w / 2, y + h / 2
+        pre_w, pre_h = h, w
+        return (
+            f'<g transform="rotate(90 {cx:.1f} {cy:.1f})">'
+            f'<use href="#sym-{name}" {fit} '
+            f'x="{cx - pre_w / 2:.1f}" y="{cy - pre_h / 2:.1f}" '
+            f'width="{pre_w:.1f}" height="{pre_h:.1f}"/>'
+            f"</g>"
+        )
+    return (
+        f'<use href="#sym-{name}" {fit} '
+        f'x="{x:.1f}" y="{y:.1f}" '
+        f'width="{w:.1f}" height="{h:.1f}"/>'
+    )
+
+
+def symbol_credit_svg() -> str:
+    """Freepik 무료 라이선스가 요구하는 출처 표기.
+
+    심볼을 실제로 쓴 평면도에만 붙는다(심볼 폴더가 없으면 생략).
     """
-    d = h * ISO_K          # 눕힌 깊이
-    # 전단량. 뒤/앞을 절반씩 밀어 원래 자리 안에 머문다.
-    # 폭보다 깊이가 훨씬 큰 가구(벽거울 28x401 등)는 전단이 폭을 넘어
-    # 벽을 삐져나가므로 폭의 절반으로 제한한다.
-    skew = min(d / 2, w / 2)
-    top_y = y + h / 2 - d / 2
-    bot_y = top_y + d
+    if not load_symbols():
+        return ""
     return (
-        (x + skew, top_y),          # 뒤왼
-        (x + w, top_y),             # 뒤오른
-        (x + w - skew, bot_y),      # 앞오른
-        (x, bot_y),                 # 앞왼
+        f'<text '
+        f'x="{CANVAS_W - 24}" '
+        f'y="{CANVAS_H - 12}" '
+        f'text-anchor="end" '
+        f'font-family="{FONT_FAMILY}" '
+        f'font-size="10" '
+        f'fill="{STYLE["thin"]}">'
+        f'{escape(SYMBOL_CREDIT)}'
+        f'</text>'
     )
 
 
-def _poly(pts, fill: str, sw: float = 1.2) -> str:
-    d = " ".join(f"{px:.1f},{py:.1f}" for px, py in pts)
-    return (
-        f'<polygon points="{d}" fill="{fill}" '
-        f'stroke="{STYLE["line"]}" stroke-width="{sw}" '
-        f'stroke-linejoin="round"/>'
-    )
-
-
-def _iso_lift(o: PlacedObject) -> float:
-    """가구 높이(px). 바닥 면적이 아니라 타입으로 정해 과장을 막는다.
-    세워 올린 윗면이 방 천장(위쪽 벽)을 넘지 않도록 잘라낸다."""
-    base = min(o["w"], o["h"])
-    lift = ISO_HEIGHT.get(o["type"], 0.5) * min(base, 120)
-    # 바닥 면의 최상단 y에서 위로 lift만큼 올라가므로, 방 안에 남을 만큼만.
-    top_y = o["y"] + o["h"] / 2 - (o["h"] * ISO_K) / 2
-    headroom = top_y - (MARGIN_Y + 6)
-    return max(6.0, min(lift, headroom))
-
-
-def iso_box(o: PlacedObject) -> str:
-    """아이소메트릭 직육면체. 천면·정면·측면을 톤으로 구분."""
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    lift = _iso_lift(o)
-    bl, br, fr, fl = _iso_pts(x, y, w, h)
-
-    def up(p):
-        return (p[0], p[1] - lift)
-
-    # 보이는 면만: 정면(앞), 측면(오른), 천면
-    front = _poly([fl, fr, up(fr), up(fl)], STYLE["iso_left"])
-    side = _poly([fr, br, up(br), up(fr)], STYLE["iso_right"])
-    top = _poly([up(bl), up(br), up(fr), up(fl)], STYLE["iso_top"])
-    return f"<g>{front}{side}{top}</g>"
-
-
-def iso_flat(o: PlacedObject) -> str:
-    """러그처럼 높이가 없는 것 — 눕힌 면만."""
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    pts = _iso_pts(x, y, w, h)
-    d = " ".join(f"{px:.1f},{py:.1f}" for px, py in pts)
-    return (
-        f'<polygon points="{d}" fill="none" '
-        f'stroke="{STYLE["rug"]}" stroke-width="1.6" '
-        f'stroke-dasharray="6 4"/>'
-    )
-
-
-def iso_round(o: PlacedObject) -> str:
-    """의자·스툴 — 눕힌 타원 좌판 + 기둥 + 바닥 접지.
-
-    단, 바닥이 정사각형에서 크게 벗어난 좌석(소파를 chair로 인식한
-    328x102 등)은 타원으로 그리면 납작한 팬케이크가 되므로
-    직육면체로 대신 그린다.
-    """
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    if max(w, h) > min(w, h) * 1.8:
-        return iso_box(o)
-    d = h * ISO_K
-    cx = x + w / 2
-    cy = y + h / 2
-    rx = w / 2
-    ry = d / 2
-    lift = _iso_lift(o)
-    return (
-        f'<g>'
-        f'<ellipse cx="{cx}" cy="{cy}" rx="{rx * 0.5}" ry="{ry * 0.5}" '
-        f'fill="none" stroke="{STYLE["thin"]}" stroke-width="1" '
-        f'stroke-dasharray="2 3"/>'
-        f'<line x1="{cx}" y1="{cy}" x2="{cx}" y2="{cy - lift}" '
-        f'stroke="{STYLE["line"]}" stroke-width="1.5"/>'
-        f'<ellipse cx="{cx}" cy="{cy - lift}" rx="{rx}" ry="{ry}" '
-        f'fill="{STYLE["iso_top"]}" stroke="{STYLE["line"]}" stroke-width="1.2"/>'
-        f'</g>'
-    )
-
-
-ISO_DRAWERS: dict[str, Any] = {
-    "bed": iso_box,
-    "rug": iso_flat,
-    "shelf": iso_box,
-    "cabinet": iso_box,
-    "table": iso_box,
-    "low_table": iso_box,
-    "desk": iso_box,
-    "mirror": iso_box,
-    "lamp": iso_round,
-    "stool": iso_round,
-    "chair": iso_round,
-    "floor_chair": iso_round,
+DRAWERS: dict[str, Any] = {
+    "bed": symbol_obj,
+    "rug": symbol_obj,
+    "shelf": symbol_obj,
+    "cabinet": symbol_obj,
+    "table": symbol_obj,
+    "low_table": symbol_obj,
+    "desk": symbol_obj,
+    "mirror": symbol_obj,
+    "lamp": symbol_obj,
+    "stool": symbol_obj,
+    "chair": symbol_obj,
+    "floor_chair": symbol_obj,
+    "plant": symbol_obj,
     "window": window,
     "door": door,
 }
-
-
-# ──────────────────────────────────────────────────────
-# 스타일 4: 아이콘 — 가구를 실제 크기 사각형으로 그리지 않고,
-# 자리 중앙에 일정한 크기의 심볼 하나로 표시한다.
-# 배치 관계만 빠르게 읽히는 대신 크기 정보는 버린다.
-# ──────────────────────────────────────────────────────
-DRAWERS: dict[str, Any] = ISO_DRAWERS
 
 
 def selected_product_outline(
@@ -1575,6 +1598,11 @@ def render_svg(
         aligned
     )
 
+    # 이 평면도에 쓰인 가구 심볼만 <defs>에 담는다(use가 참조).
+    defs_svg = symbol_defs(
+        objects
+    )
+
     object_svg = "\n".join(
         draw_obj(obj)
         for obj in objects
@@ -1779,10 +1807,12 @@ def render_svg(
         f'{escape(subtitle)}'
         f'</text>'
 
+        f'{defs_svg}'
         f'{dimensions()}'
         f'{room()}'
         f'{object_svg}'
         f'{footer_svg}'
+        f'{symbol_credit_svg()}'
 
         f'</svg>'
     )

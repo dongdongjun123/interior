@@ -28,10 +28,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from model1 import interior_to_floorplan as floorplan_model
-from mood_pipeline import rule_based_svg
-from mood_pipeline import search as mood_search
-from mood_pipeline.config import IMAGE_ROOT as MOOD_IMAGE_ROOT
+from model2 import interior_to_floorplan as floorplan_model
+from model2 import rule_based_svg
+from model1 import search as mood_search
+from shared.config import IMAGE_ROOT as MOOD_IMAGE_ROOT
 
 
 # 실행 위치와 관계없이 프로젝트 루트의 .env 파일을 읽는다.
@@ -668,7 +668,7 @@ def index():
 @app.route("/gallery")
 def gallery():
     # 무드 라이브러리(images/final) 사진을 그리드로 보여준다.
-    from mood_pipeline.preprocess import collect_image_paths
+    from model1.preprocess import collect_image_paths
 
     try:
         paths = collect_image_paths(MOOD_IMAGE_ROOT)
@@ -1410,218 +1410,13 @@ def default_furniture_choices():
     ]
 
 
-@app.route(
-    "/product-selection",
-    methods=["GET", "POST"],
-)
-def product_selection():
-    if "mood_prompt" not in session:
-        return redirect(
-            url_for("prompt")
-        )
-
-    if "uploaded_file" not in session:
-        return redirect(
-            url_for("upload")
-        )
-
-    # STEP 4를 건너뛰고 바로 들어온 경우:
-    # 가구는 모두 '유지'로 두고 구매 선택만 이 화면에서 받는다.
-    if (
-        "furniture_choices"
-        not in session
-    ):
-        session[
-            "furniture_choices"
-        ] = default_furniture_choices()
-
-    if request.method == "POST":
-        furniture_choices = []
-
-        for item in session.get(
-            "detected_furniture",
-            [],
-        ):
-            item_id = item.get(
-                "id"
-            )
-
-            decision = request.form.get(
-                f"decision_{item_id}",
-                "keep",
-            )
-
-            if decision not in {
-                "keep",
-                "remove",
-            }:
-                decision = "keep"
-
-            furniture_choices.append(
-                {
-                    "id": item_id,
-                    "item": item.get(
-                        "label"
-                    ),
-                    "type": item.get(
-                        "type"
-                    ),
-                    "source_index": (
-                        item.get(
-                            "source_index"
-                        )
-                    ),
-                    "decision": decision,
-                }
-            )
-
-        purchase_items = [
-            item
-            for item
-            in request.form.getlist(
-                "purchase_items"
-            )
-            if item in PURCHASE_LABELS
-        ]
-
-        session[
-            "furniture_choices"
-        ] = furniture_choices
-
-        session[
-            "purchase_items"
-        ] = purchase_items
-
-        # 가구 선택을 다시 했기 때문에
-        # 이전 추천 상품 정보는 삭제한다.
-        old_candidates = session.pop(
-            "product_candidates_file",
-            None,
-        )
-
-        old_selected = session.pop(
-            "selected_products_file",
-            None,
-        )
-
-        remove_cache_file(
-            old_candidates
-        )
-
-        remove_cache_file(
-            old_selected
-        )
-
-    purchase_items = session.get(
-        "purchase_items",
-        [],
-    )
-
-    cached_data = load_json_cache(
-        session.get(
-            "product_candidates_file"
-        ),
-        default={},
-    )
-
-    cached_types = cached_data.get(
-        "purchase_types",
-        [],
-    )
-
-    product_groups = cached_data.get(
-        "groups",
-        [],
-    )
-
-    # 선택한 가구 종류가 이전 검색과 다르면
-    # 네이버 쇼핑 API를 새로 호출한다.
-    if cached_types != purchase_items:
-        product_groups = []
-
-        for item_type in purchase_items:
-            label = (
-                PURCHASE_LABELS.get(
-                    item_type,
-                    item_type,
-                )
-            )
-
-            query = build_product_query(
-                item_type
-            )
-
-            products = []
-            error_message = None
-
-            try:
-                products = (
-                    search_naver_shopping(
-                        query=query,
-                        display=4,
-                    )
-                )
-
-            except Exception as exc:
-                error_message = str(
-                    exc
-                )
-
-                print(
-                    "[product-selection] "
-                    f"{label} 검색 실패: "
-                    f"{exc}"
-                )
-
-            product_groups.append(
-                {
-                    "type": item_type,
-                    "label": label,
-                    "query": query,
-                    "products": products,
-                    "error": error_message,
-                }
-            )
-
-        cache_data = {
-            "purchase_types": (
-                purchase_items
-            ),
-            "groups": product_groups,
-        }
-
-        cache_filename = (
-            save_json_cache(
-                "product_candidates",
-                cache_data,
-            )
-        )
-
-        session[
-            "product_candidates_file"
-        ] = cache_filename
-
-    return render_template(
-        "product_selection.html",
-        product_groups=(
-            product_groups
-        ),
-        purchase_items=(
-            purchase_items
-        ),
-        purchase_options=[
-            {
-                "value": item_type,
-                "label": label,
-            }
-            for item_type, label
-            in PURCHASE_LABELS.items()
-        ],
-    )
 
 
 # ──────────────────────────────────────────────────────
-# 수정 평면도 생성
+# STEP 6: 선택한 상품으로 결과 생성
+# ──────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────
+# 수정 평면도 생성 (result / toggle-furniture / add-product 공용)
 # ──────────────────────────────────────────────────────
 def read_generated_svg(filename):
     """generated 폴더의 SVG 파일 내용(markup)을 읽어 반환. 없으면 None.
@@ -1885,14 +1680,17 @@ def create_modified_floorplan(
         return None
 
 
-# ──────────────────────────────────────────────────────
-# STEP 6: 선택한 상품으로 결과 생성
-# ──────────────────────────────────────────────────────
 @app.route(
     "/generate-design",
-    methods=["POST"],
+    methods=["GET", "POST"],
 )
 def generate_design():
+    """평면도 -> 결과 화면. 상품 선택 없이도 바로 진행한다.
+
+    구매할 가구와 상품 선택은 result 화면에서 직접 검색·추가할 수 있으므로
+    (search-products / add-product) 별도 선택 단계를 두지 않는다.
+    GET으로 들어오면 상품 선택 없이 기존 가구만 반영해 결과를 만든다.
+    """
     if "mood_prompt" not in session:
         return redirect(
             url_for("prompt")
@@ -1901,6 +1699,55 @@ def generate_design():
     if "uploaded_file" not in session:
         return redirect(
             url_for("upload")
+        )
+
+    # STEP 4(가구 유지/제거) 폼에서 POST로 들어온 경우 그 선택을 반영한다.
+    # 이 화면을 거치지 않았다면 감지된 가구를 전부 '유지'로 둔다.
+    if request.method == "POST" and request.form.get(
+        "from_furniture_choice"
+    ):
+        choices = []
+
+        for item in session.get(
+            "detected_furniture",
+            [],
+        ):
+            item_id = item.get("id")
+
+            decision = request.form.get(
+                f"decision_{item_id}",
+                "keep",
+            )
+
+            if decision not in {"keep", "remove"}:
+                decision = "keep"
+
+            choices.append(
+                {
+                    "id": item_id,
+                    "item": item.get("label"),
+                    "type": item.get("type"),
+                    "source_index": item.get(
+                        "source_index"
+                    ),
+                    "decision": decision,
+                }
+            )
+
+        session["furniture_choices"] = choices
+
+        # 이 화면에서 고른 '새로 구매할 가구' 종류도 함께 받는다.
+        session["purchase_items"] = [
+            item
+            for item in request.form.getlist(
+                "purchase_items"
+            )
+            if item in PURCHASE_LABELS
+        ]
+
+    elif "furniture_choices" not in session:
+        session["furniture_choices"] = (
+            default_furniture_choices()
         )
 
     furniture_choices = session.get(
@@ -1996,19 +1843,9 @@ def generate_design():
             selected_product
         )
 
-    # 구매할 가구 종류를 선택했지만
-    # 상품을 하나라도 고르지 않은 경우
-    # 상품 선택 화면으로 되돌아간다.
-    if (
-        purchase_items
-        and len(selected_products)
-        != len(purchase_items)
-    ):
-        return redirect(
-            url_for(
-                "product_selection"
-            )
-        )
+    # 상품을 고르지 않아도 그대로 진행한다. 추천 상품은 result 화면에서
+    # 직접 검색해 추가할 수 있으므로(search-products / add-product)
+    # 여기서 되돌릴 화면이 없다.
 
     old_selected_file = session.pop(
         "selected_products_file",

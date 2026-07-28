@@ -1,0 +1,28 @@
+평면도 가구 심볼 출처 및 라이선스
+=====================================
+
+출처: Freepik "loft plan" 벡터 (loft-plan.zip)
+      원본 파일 3.ai / 3.eps / 3.jpg 에서 가구별로 잘라낸 것.
+
+저작자 표시 (무료 라이선스 조건, 필수):
+
+    Designed by Freepik
+    <a href="http://www.freepik.com">Designed by Freepik</a>
+
+  → 화면 표기 위치: 평면도 SVG 하단 (rule_based_svg.py 의 footer)
+
+허용:
+  - 개인/상업 프로젝트 사용, 수정
+  - 웹사이트·애플리케이션에 포함
+
+금지:
+  - 재판매(sub-license, resell, rent)
+  - 온라인/오프라인 아카이브나 데이터베이스에 포함
+    (※ 이 폴더는 앱 구동용 에셋이며 배포용 심볼 아카이브가 아니다)
+
+전체 약관: http://www.freepik.com/terms_of_use (7조)
+
+주의:
+  프리미엄(유료) 계정으로 내려받은 경우 저작자 표시가 면제된다.
+  그 경우 Freepik 프로필에서 개인 라이선스 증서를 받아 보관할 것.
+  https://profile.freepik.com/my_downloads

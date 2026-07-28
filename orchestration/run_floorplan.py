@@ -12,7 +12,7 @@
 #
 # 사용:
 #   python orchestration/run_floorplan.py <사진경로> [--out-dir 출력폴더]
-#   반드시 프로젝트 루트에서 실행 (mood_pipeline / model1 import 때문).
+#   반드시 프로젝트 루트에서 실행 (model1 / model2 / shared import 때문).
 from __future__ import annotations
 
 import argparse
@@ -33,7 +33,7 @@ if str(ROOT) not in sys.path:
 
 from dotenv import load_dotenv  # noqa: E402
 
-from mood_pipeline.detection_evidence import build_evidence_prompt, load_detection  # noqa: E402
+from model2.detection_evidence import build_evidence_prompt, load_detection  # noqa: E402
 
 ROOMDET_DIR = ROOT / "room-object-detection"
 
@@ -103,7 +103,7 @@ def main() -> None:
         print("[gemini] 근거 없이 layout 추출")
 
     # 3) 사진 → layout → SVG. 근거를 새로 반영하려면 캐시를 건너뛴다(skip_existing=False).
-    from model1.pipeline import generate_floorplan_for_web  # 지연 import(.env 로드 후)
+    from model2.pipeline import generate_floorplan_for_web  # 지연 import(.env 로드 후)
     result = generate_floorplan_for_web(
         image_path, out_dir,
         skip_existing=False,

@@ -374,7 +374,7 @@ def run_rule_based_svg_step(
     # Gemini API 호출은 없음
     import importlib
 
-    import mood_pipeline.rule_based_svg as rbs
+    import model2.rule_based_svg as rbs
 
     # 최신 렌더러 코드 반영
     importlib.reload(rbs)
