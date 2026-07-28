@@ -79,30 +79,65 @@ KOREAN_LABELS = {
     "plant": "식물",
     "door": "문",
     "window": "창문",
-    "unknown": "가구",
+    "unknown": "기타 물건",
 }
 
 
+# 영어 라벨 -> 화면용 한글 이름.
+# backend/app.py의 translate_furniture_label과 같은 이름이 나오도록 맞춘다
+# (같은 가구가 평면도 범례와 '가구 선택 요약'에서 다르게 보이면 안 된다).
 LABEL_ALIASES = {
     "single bed": "싱글 침대",
+    "double bed": "더블 침대",
+    "queen bed": "퀸 침대",
+    "king bed": "킹 침대",
     "bed": "침대",
     "desk": "책상",
+    "study desk": "책상",
+    "office desk": "책상",
     "table": "테이블",
     "low table": "낮은 테이블",
+    "coffee table": "커피 테이블",
+    "dining table": "식탁",
     "nightstand": "협탁",
+    "bedside table": "협탁",
     "side table": "협탁",
     "tv stand": "TV장",
     "table lamp": "탁상 조명",
+    "desk lamp": "책상 조명",
+    "bedside lamp": "침대 조명",
     "floor lamp": "스탠드 조명",
+    "pendant lamp": "펜던트 조명",
     "shelf": "선반",
+    "bookshelf": "책장",
+    "shelf unit": "선반",
     "cabinet": "수납장",
+    "storage cabinet": "수납장",
+    "storage unit": "수납장",
+    "room divider": "파티션",
+    "room divider cabinet": "파티션 수납장",
+    "wardrobe": "옷장",
+    "closet": "옷장",
+    "dresser": "서랍장",
     "chair": "의자",
+    "office chair": "사무 의자",
+    "armchair": "안락의자",
+    "lounge chair": "라운지 의자",
     "floor chair": "좌식 의자",
+    "sofa": "소파",
+    "couch": "소파",
+    "sectional sofa": "코너 소파",
+    "corner sofa": "코너 소파",
     "stool": "스툴",
+    "ottoman": "오토만",
+    "bench": "벤치",
     "rug": "러그",
+    "carpet": "카펫",
+    "area rug": "러그",
     "mirror": "거울",
     "lamp": "조명",
     "plant": "식물",
+    "potted plant": "화분",
     "door": "문",
     "window": "창문",
 }
@@ -254,7 +289,7 @@ def display_label(
     ):
         return KOREAN_LABELS.get(
             object_type,
-            "가구",
+            "기타 물건",
         )
 
     # 이미 한글 이름이면 그대로 사용
@@ -264,9 +299,15 @@ def display_label(
     ):
         return label_text
 
+    # 별칭에 없는 영어 라벨은 수식어를 떼고 핵심 명사로 판단한다.
+    # ("wall grid shelf" -> shelf -> 선반). 영어를 그대로 내보내지 않는다.
+    for word in reversed(re.findall(r"[a-z]+", normalized)):
+        if word in KOREAN_LABELS:
+            return KOREAN_LABELS[word]
+
     return KOREAN_LABELS.get(
         object_type,
-        label_text or "가구",
+        "기타 물건",
     )
 
 
@@ -514,8 +555,67 @@ def merge_subparts(objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return kept
 
 
+# 타입별 최소 신뢰도. 이 값 미만이면 "그 가구로 인정하지 않고" 버린다.
+#
+# 큰 가구는 낮게 둔다 — 침대를 놓치면 방이 텅 비어 평면도가 쓸모없어지고,
+# 애초에 큰 가구는 오인식이 드물다. 반대로 소품(조명·화분·스툴)은 잘못
+# 넣으면 도면만 시끄러워지므로 높게 잡는다. unknown은 정체를 모르는 것이라
+# 가장 엄격하게 본다.
+#
+# 값을 정한 근거: 실측(사진 3장 x 13객체)에서 Gemini는 프롬프트로 보정을
+# 요구해도 0.70 아래를 거의 내놓지 않고 중앙값이 0.90이었다. 그래서 큰
+# 가구 기준을 0.3~0.4로 두면 아무것도 안 걸러진다. 실제로 변별이 일어나는
+# 0.70~0.90 구간에 기준을 놓는다.
+CONF_MIN: dict[str, float] = {
+    # 놓치면 평면도가 무의미해지는 큰 가구 — 관대하게
+    "bed": 0.70,
+    "cabinet": 0.75,
+    "shelf": 0.75,
+    "desk": 0.75,
+    "table": 0.75,
+    "low_table": 0.75,
+    "rug": 0.75,
+    # 배치의 뼈대는 되지만 오인식도 잦은 것
+    "chair": 0.80,
+    "floor_chair": 0.80,
+    "door": 0.80,
+    "window": 0.80,
+    # 잘못 들어가면 도면만 시끄러워지는 소품 — 엄격하게
+    "mirror": 0.85,
+    "stool": 0.85,
+    "lamp": 0.85,
+    "plant": 0.85,
+    # 정체 불명 — 가장 엄격
+    "unknown": 0.90,
+}
+
+CONF_MIN_DEFAULT = 0.8
+
+
+def conf_threshold(object_type: str) -> float:
+    return CONF_MIN.get(object_type, CONF_MIN_DEFAULT)
+
+
+# 그릴 심볼이 없는 타입은 평면도에 넣지 않는다.
+#
+# 예전에는 generic()으로 빈 사각형을 그렸는데, 사진에 실제로 뭐가 있는지
+# 알려주지 못하면서 자리만 차지하고 겹침 해소까지 밀어냈다. 정체를 모르는
+# 것(unknown: wall art, desk basket 등)이나 도면 심볼이 없는 것은
+# "정보 없음"이므로 아예 비워 두는 편이 정확하다.
+#
+# window/door는 심볼 대신 전용 그리기 함수가 있어 예외로 둔다.
+DRAWN_WITHOUT_SYMBOL = {"window", "door"}
+
+
+def has_drawable_symbol(object_type: str) -> bool:
+    if object_type in DRAWN_WITHOUT_SYMBOL:
+        return True
+    name = SYMBOL_FOR_TYPE.get(object_type)
+    return bool(name) and name in load_symbols()
+
+
 def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """부분품 병합, 저신뢰 소품 제거, 벽당 창문 1개, low_table 주변 chair → floor_chair."""
+    """부분품 병합, 저신뢰·미지원 객체 제거, 벽당 창문 1개, chair → floor_chair."""
     objects = merge_subparts(objects)
     filtered: list[dict[str, Any]] = []
     lamp_count = 0
@@ -525,7 +625,11 @@ def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, 
         conf = float(obj.get("confidence", 0.5) or 0.5)
         label = (obj.get("label") or "").lower()
 
-        if t in ("lamp", "plant") and conf < 0.65:
+        # 타입별 임계값 미달 → 그 가구로 인정하지 않는다.
+        if conf < conf_threshold(t):
+            continue
+        # 그릴 심볼이 없으면 빈 사각형 대신 그냥 넣지 않는다.
+        if not has_drawable_symbol(t):
             continue
         if t == "lamp":
             lamp_count += 1
@@ -556,16 +660,43 @@ def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, 
         conf = float(obj.get("confidence", 0.5) or 0.5)
         prev = windows_by_wall.get(wall)
         if prev is None or conf > float(prev.get("confidence", 0) or 0):
+            # 벽에 딱 붙이는 좌표만 보정하고, 벽을 따라가는 위치와 폭은
+            # Gemini가 본 값을 그대로 쓴다. 전에는 전부 벽 중앙·폭 0.35로
+            # 덮어써서 "오른쪽으로 치우친 넓은 창"이 "중앙의 좁은 창"이 됐다.
             cx, cy = wall_center.get(wall, (0.5, 0.95))
+            try:
+                gx = float(obj.get("x", cx))
+                gy = float(obj.get("y", cy))
+            except (TypeError, ValueError):
+                gx, gy = cx, cy
+
+            if wall in ("top", "bottom"):
+                # 수평 벽: x(벽을 따라가는 위치)는 유지, y만 벽에 붙인다.
+                x_value, y_value = clamp(gx, 0.12, 0.88), cy
+            else:
+                x_value, y_value = cx, clamp(gy, 0.12, 0.88)
+
+            # 창 길이는 벽 방향에 따라 다른 축에 들어온다.
+            # 수평 벽(top/bottom)은 w가 길이, 세로 벽(left/right)은 h가 길이.
+            length_key = (
+                "w" if wall in ("top", "bottom") else "h"
+            )
+            try:
+                span = float(obj.get(length_key) or 0.0)
+            except (TypeError, ValueError):
+                span = 0.0
+            # 벽 길이의 15~70%만 받는다(두께를 길이로 오인하는 값 방어).
+            span = clamp(span, 0.15, 0.70) if span > 0.05 else 0.35
+
             windows_by_wall[wall] = {
                 **obj,
                 "type": "window",
                 "label": "Window",
                 "wall": wall,
-                "x": cx,
-                "y": cy,
-                "w": 0.35,
-                "h": 0.03,
+                "x": x_value,
+                "y": y_value,
+                "w": span if length_key == "w" else 0.03,
+                "h": span if length_key == "h" else 0.03,
                 "confidence": conf,
             }
 
@@ -706,6 +837,10 @@ def normalize_objects(
                         "product_title"
                     )
                 ),
+                # 상품 제목에서 읽어낸 실측 치수 원문(툴팁 표시용)
+                "size_note": (
+                    obj.get("size_note")
+                ),
             }
         )
 
@@ -775,13 +910,21 @@ def wall_attach(o: PlacedObject) -> PlacedObject:
     wall = o.get("wall", "none")
 
     if t == "window":
+        # 두께는 벽에 붙이려고 고정하되, 창 길이는 Gemini가 본 값을 살린다.
+        # (전에는 STD_SIZE로 덮어써서 모든 창이 같은 폭 240px이 됐다.)
         wall = wall if wall in ("top", "bottom", "left", "right") else "bottom"
+        std_w, std_h = STD_SIZE["window"]
         if wall in ("top", "bottom"):
-            o["w"], o["h"] = STD_SIZE["window"]
+            span = o["w"] if o["w"] > 40 else std_w
+            o["w"] = clamp(span, 90, ROOM_W * 0.7)
+            o["h"] = std_h
             x = clamp(o["cx"] - o["w"] / 2, MARGIN_X + 80, MARGIN_X + ROOM_W - o["w"] - 80)
             y = MARGIN_Y - 7 if wall == "top" else MARGIN_Y + ROOM_H - 13
         else:
-            o["w"], o["h"] = 20, 220
+            # 세로 벽에서는 창 길이가 h(세로)다.
+            span = o["h"] if o["h"] > 40 else 220
+            o["w"] = std_h
+            o["h"] = clamp(span, 90, ROOM_H * 0.7)
             x = MARGIN_X - 7 if wall == "left" else MARGIN_X + ROOM_W - 13
             y = clamp(o["cy"] - o["h"] / 2, MARGIN_Y + 80, MARGIN_Y + ROOM_H - o["h"] - 80)
     elif t == "door":
@@ -1103,14 +1246,6 @@ def door(o: PlacedObject) -> str:
     )
 
 
-def generic(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    return (
-        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" '
-        f'fill="none" stroke="{STYLE["line"]}" stroke-width="1.5" rx="2"/>'
-    )
-
-
 # ──────────────────────────────────────────────────────
 # 가구 심볼 렌더 — Freepik "loft plan" 벡터에서 잘라낸 평면 심볼을
 # <defs><symbol>으로 한 번 정의하고 가구마다 <use>로 배치한다.
@@ -1128,7 +1263,7 @@ SYMBOL_DIR = (
 SYMBOL_CREDIT = "가구 심볼: Designed by Freepik"
 
 # 렌더러 타입 -> 심볼 파일 이름(확장자 제외).
-# 심볼이 없는 타입은 generic(사각형)으로 떨어진다.
+# 여기 없는 타입은 그리지 않는다(빈 사각형을 놓지 않는다).
 SYMBOL_FOR_TYPE = {
     "bed": "bed",
     "desk": "desk",
@@ -1141,6 +1276,7 @@ SYMBOL_FOR_TYPE = {
     "stool": "stool",
     "rug": "rug",
     "plant": "plant",
+    "lamp": "lamp",
     "mirror": "nightstand",     # 벽면 사각 프레임으로 재사용
 }
 
@@ -1204,11 +1340,15 @@ def symbol_defs(objects: list[PlacedObject]) -> str:
 
 
 def symbol_obj(o: PlacedObject) -> str:
-    """가구 하나를 심볼로 그린다. 심볼이 없으면 사각형으로 대체."""
+    """가구 하나를 심볼로 그린다.
+
+    심볼이 없으면 아무것도 그리지 않는다. 빈 사각형을 놓으면 사진에 무엇이
+    있었는지 알려주지 못하면서 자리만 차지한다(정보 없음 = 비워 두기).
+    """
     name = SYMBOL_FOR_TYPE.get(o["type"])
     symbols = load_symbols()
     if not name or name not in symbols:
-        return generic(o)
+        return ""
 
     x, y, w, h = o["x"], o["y"], o["w"], o["h"]
     _, vw, vh = symbols[name]
@@ -1397,12 +1537,17 @@ def draw_obj(
 ) -> str:
     drawer = DRAWERS.get(
         obj["type"],
-        generic,
+        symbol_obj,
     )
 
     object_svg = drawer(
         obj
     )
+
+    # 그릴 게 없으면(심볼 미보유) 빈 <g>도 남기지 않는다.
+    # 빈 사각형은 사진에 없는 정보를 있는 것처럼 보이게 한다.
+    if not object_svg:
+        return ""
 
     source = escape(
         str(
@@ -1420,8 +1565,46 @@ def draw_obj(
     if draggable:
         data_attrs += ' data-draggable="1"'
 
+    # 마우스를 올렸을 때 보여줄 정보. JS 툴팁이 이 값들을 읽는다.
+    label = escape(str(obj.get("label") or ""))
+    type_name = escape(
+        KOREAN_LABELS.get(obj["type"], obj["type"])
+    )
+    data_attrs += f' data-label="{label}"'
+    data_attrs += f' data-type-name="{type_name}"'
+
+    confidence = obj.get("confidence")
+    if confidence is not None:
+        data_attrs += f' data-confidence="{float(confidence):.2f}"'
+
+    # 방 대비 차지 비율(%) — 크기를 감으로 알 수 있게.
+    area_pct = (
+        float(obj["w"]) * float(obj["h"]) / (ROOM_W * ROOM_H) * 100
+    )
+    data_attrs += f' data-area-pct="{area_pct:.1f}"'
+
+    if obj.get("product_title"):
+        data_attrs += (
+            f' data-product-title='
+            f'"{escape(str(obj["product_title"]))}"'
+        )
+    if obj.get("product_link"):
+        data_attrs += (
+            f' data-product-link='
+            f'"{escape(str(obj["product_link"]))}"'
+        )
+    if obj.get("size_note"):
+        data_attrs += (
+            f' data-size-note='
+            f'"{escape(str(obj["size_note"]))}"'
+        )
+
+    # SVG 기본 툴팁도 함께 둔다(JS가 실패해도 이름은 보이게).
+    native_tip = f"<title>{label or type_name}</title>"
+
     return (
         f'<g{data_attrs}>'
+        f'{native_tip}'
         f'{selected_product_outline(obj)}'
         f'{object_svg}'
         f'{selected_product_marker(obj)}'

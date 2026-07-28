@@ -151,6 +151,288 @@ PURCHASE_POSITIONS = [
 
 
 # ──────────────────────────────────────────────────────
+# 상품 실측 크기 추출
+#
+# 네이버 쇼핑 API에는 크기 필드가 없다(title/lprice/mallName/category만
+# 준다). 다만 가구 상품은 제목에 치수를 적는 관행이 있어 거기서 뽑는다.
+#   "...테이블 4인용 D750XW1200XH720"  -> 1200 x 750 mm
+#   "[두닷] 콰트로 책상 1800x800mm"      -> 1800 x  800 mm
+#   "...러그 ... 180x220cm"            -> 1800 x 2200 mm
+#   "...침대 프레임 SS(슈퍼싱글)"          -> 1100 x 2000 mm (규격표)
+#
+# 실측(상품 80개): 이 방식으로 31%에서 치수를 얻는다.
+# 침대 100% / 책상 60% / 러그 50% / 선반 30%, 의자·테이블은 0%.
+# 못 찾으면 None을 돌려주고 렌더러 표준 크기를 그대로 쓴다.
+# ──────────────────────────────────────────────────────
+
+# 침대·매트리스 규격명 -> (가로mm, 세로mm).
+# 긴 이름이 짧은 이름을 포함하므로("슈퍼싱글" ⊃ "싱글") 검사 순서가 중요하다.
+BED_SIZE_SPECS = {
+    "라지킹": (1800, 2000),
+    "슈퍼싱글": (1100, 2000),
+    "패밀리": (2000, 2000),
+    "싱글": (1000, 2000),
+    "더블": (1400, 2000),
+    "퀸": (1500, 2000),
+    "킹": (1600, 2000),
+    "ss": (1100, 2000),
+    "sss": (1100, 2000),
+}
+
+# 방 한 변으로 볼 수 있는 현실적인 가구 치수 범위(mm)
+MIN_FURNITURE_MM = 150
+MAX_FURNITURE_MM = 4000
+
+
+def _mm_pair_ok(a, b):
+    return (
+        MIN_FURNITURE_MM <= a <= MAX_FURNITURE_MM
+        and MIN_FURNITURE_MM <= b <= MAX_FURNITURE_MM
+    )
+
+
+def parse_product_dimensions(title):
+    """상품 제목에서 (가로mm, 세로mm)를 추출한다.
+
+    세로를 못 구하면 d_mm은 None이다(가로만 반영).
+    아무것도 못 찾으면 None.
+    """
+    if not title:
+        return None
+
+    text = clean_html(str(title))
+
+    # 1) D750XW1200XH720 — 축 라벨이 붙은 표기
+    match = re.search(
+        r"[Dd]\s*(\d{2,4})\s*[xX*×]\s*[Ww]\s*(\d{2,4})",
+        text,
+    )
+    if match:
+        depth, width = (
+            int(match.group(1)),
+            int(match.group(2)),
+        )
+        if _mm_pair_ok(width, depth):
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": match.group(0),
+            }
+
+    match = re.search(
+        r"[Ww]\s*(\d{2,4})\s*[xX*×]\s*[Dd]\s*(\d{2,4})",
+        text,
+    )
+    if match:
+        width, depth = (
+            int(match.group(1)),
+            int(match.group(2)),
+        )
+        if _mm_pair_ok(width, depth):
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": match.group(0),
+            }
+
+    # 2) 1800x800mm / 180x220cm — 라벨 없는 두 축
+    match = re.search(
+        r"(\d{2,4})\s*[xX*×]\s*(\d{2,4})\s*(cm|CM|㎝|mm|MM|㎜)?",
+        text,
+    )
+    if match:
+        first, second = (
+            int(match.group(1)),
+            int(match.group(2)),
+        )
+        unit = (match.group(3) or "").lower()
+
+        # 단위가 없으면 값 크기로 판단한다. 가구 치수를 세 자리 미만으로
+        # 적으면 cm 관행(180x220), 세 자리 이상이면 mm(1800x800).
+        if unit in ("cm", "㎝") or (
+            not unit and max(first, second) < 300
+        ):
+            first, second = first * 10, second * 10
+
+        if _mm_pair_ok(first, second):
+            return {
+                "w_mm": first,
+                "d_mm": second,
+                "raw": match.group(0),
+            }
+
+    # 3) 침대 규격명 — 긴 이름부터 검사(부분 문자열 오인 방지)
+    lowered = text.lower()
+    for name in sorted(
+        BED_SIZE_SPECS,
+        key=len,
+        reverse=True,
+    ):
+        if name in lowered:
+            width, depth = BED_SIZE_SPECS[name]
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": name,
+            }
+
+    # 4) 1800mm — 한 축만 적힌 경우. 가로로 보고 세로는 표준 비율에 맡긴다.
+    match = re.search(
+        r"(\d{3,4})\s*(?:mm|MM|㎜)\b",
+        text,
+    )
+    if match:
+        width = int(match.group(1))
+        if MIN_FURNITURE_MM <= width <= 3000:
+            return {
+                "w_mm": width,
+                "d_mm": None,
+                "raw": match.group(0),
+            }
+
+    # 5) 단위 없는 단독 숫자 — 가구 업계는 폭을 mm로 그냥 적는다.
+    #    "유리쇼케이스 600", "벽선반 400", "마켓비 책상 1100"
+    #    후보가 여러 개면 어느 축인지 알 수 없으므로 쓰지 않는다.
+    solo = [
+        int(v)
+        for v in re.findall(
+            r"(?<![0-9A-Za-z])"
+            r"([3-9]\d{2}|1\d{3}|2[0-4]\d{2})"
+            r"(?![0-9A-Za-z])",
+            text,
+        )
+    ]
+    solo = [
+        v
+        for v in solo
+        if 300 <= v <= 2400
+    ]
+    if len(set(solo)) == 1:
+        return {
+            "w_mm": solo[0],
+            "d_mm": None,
+            "raw": f"{solo[0]}mm",
+        }
+
+    return None
+
+
+# 네이버 category4는 꽤 구체적이다("사이드테이블", "일자형 책상",
+# "인테리어의자"). 제목에 치수가 없을 때 이 분류로 현실적인 표준
+# 크기를 준다. 특히 "사이드테이블"을 식탁 크기로 그리던 오류를 막는다.
+# 값은 (가로mm, 세로mm).
+CATEGORY_STD_SIZE_MM = {
+    "사이드테이블": (450, 450),
+    "좌식테이블": (800, 600),
+    "접이식테이블": (800, 600),
+    "식탁테이블": (1200, 800),
+    "인테리어의자": (450, 500),
+    "식탁의자": (450, 500),
+    "사무용의자": (600, 600),
+    "스툴": (400, 400),
+    "일자형 책상": (1200, 600),
+    "ㄱ자형 책상": (1400, 1400),
+    "학생용 책상": (1000, 600),
+    "컴퓨터 책상": (1200, 600),
+    "장식장": (900, 400),
+    "서랍장": (800, 450),
+    "옷장": (1000, 600),
+    "책장": (800, 300),
+    "벽선반": (600, 200),
+    "선반": (800, 300),
+    "협탁": (450, 400),
+    # category4가 비어 있고 category3만 오는 경우도 흔하다.
+    "수납장": (800, 400),
+    "러그": (1500, 2000),
+    "카페트": (1500, 2000),
+    "침대": (1400, 2000),
+    "소파": (1800, 900),
+    "테이블": (1000, 600),
+    "의자": (450, 500),
+    "책상": (1200, 600),
+    # 조명은 바닥 면적이 작다. 스탠드/펜던트 구분 없이 보수적으로.
+    "인테리어조명": (350, 350),
+    "조명": (350, 350),
+    "스탠드": (400, 400),
+    "장스탠드": (400, 400),
+    "거울": (500, 150),
+    "화분": (300, 300),
+    "관엽식물": (350, 350),
+    "공기정화식물": (350, 350),
+    "선인장": (200, 200),
+    "다육식물": (200, 200),
+}
+
+
+def category_std_size_mm(product):
+    """category3/4로 표준 크기를 추정한다. 모르면 None."""
+    for key in ("category4", "category3"):
+        name = str(
+            product.get(key) or ""
+        ).strip()
+        if name in CATEGORY_STD_SIZE_MM:
+            width, depth = (
+                CATEGORY_STD_SIZE_MM[name]
+            )
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": name,
+            }
+    return None
+
+
+def product_size_fractions(
+    title,
+    room_width_m,
+    room_depth_m,
+    product=None,
+):
+    """상품 치수를 방 크기 대비 0~1 비율로 바꾼다.
+
+    제목에서 치수를 못 찾으면 네이버 category로 표준 크기를 추정한다.
+    방 실측(m)이 없으면 비율을 계산할 기준이 없으므로 None을 돌려준다.
+    """
+    if not room_width_m or not room_depth_m:
+        return None
+
+    try:
+        room_w_mm = float(room_width_m) * 1000
+        room_d_mm = float(room_depth_m) * 1000
+    except (TypeError, ValueError):
+        return None
+
+    if room_w_mm <= 0 or room_d_mm <= 0:
+        return None
+
+    dims = parse_product_dimensions(title)
+
+    # 제목에 없으면 카테고리로 추정한다(정확도는 낮지만 타입 표준보다 낫다).
+    if not dims and product:
+        dims = category_std_size_mm(product)
+
+    if not dims:
+        return None
+
+    w_frac = dims["w_mm"] / room_w_mm
+    d_frac = (
+        dims["d_mm"] / room_d_mm
+        if dims["d_mm"]
+        else None
+    )
+
+    # 방을 넘어서는 값은 파싱 오류로 본다(예: 상품코드를 치수로 오인).
+    if w_frac > 0.9 or (d_frac and d_frac > 0.9):
+        return None
+
+    return {
+        "w": round(w_frac, 4),
+        "h": round(d_frac, 4) if d_frac else 0.0,
+        "raw": dims["raw"],
+    }
+
+
+# ──────────────────────────────────────────────────────
 # 공통 유틸리티
 # ──────────────────────────────────────────────────────
 def allowed_file(filename: str) -> bool:
@@ -579,23 +861,99 @@ def translate_furniture_label(
         "plant": "식물",
         "sofa": "소파",
         "couch": "소파",
+        "unknown": "기타 물건",
     }
 
     label_aliases = {
         "single bed": "싱글 침대",
+        "double bed": "더블 침대",
+        "queen bed": "퀸 침대",
+        "king bed": "킹 침대",
+        "bunk bed": "이층 침대",
         "bed": "침대",
         "nightstand": "협탁",
+        "bedside table": "협탁",
         "side table": "협탁",
         "tv stand": "TV장",
         "table lamp": "탁상 조명",
+        "desk lamp": "책상 조명",
+        "bedside lamp": "침대 조명",
         "floor lamp": "스탠드 조명",
+        "pendant lamp": "펜던트 조명",
+        "pendant lamps": "펜던트 조명",
+        "ceiling lamp": "천장 조명",
         "low table": "낮은 테이블",
+        "coffee table": "커피 테이블",
+        "dining table": "식탁",
+        "round table": "원형 테이블",
+        "study desk": "책상",
+        "office desk": "책상",
         "desk": "책상",
+        "office chair": "사무 의자",
+        "armchair": "안락의자",
+        "lounge chair": "라운지 의자",
         "chair": "의자",
+        "sofa": "소파",
+        "couch": "소파",
+        "sectional sofa": "코너 소파",
+        "corner sofa": "코너 소파",
         "rug": "러그",
+        "carpet": "카펫",
+        "area rug": "러그",
         "plant": "식물",
+        "potted plant": "화분",
+        "plant pot": "화분",
         "shelf": "선반",
+        "bookshelf": "책장",
+        "book shelf": "책장",
+        "wall shelf": "벽 선반",
+        "shelf unit": "선반",
         "cabinet": "수납장",
+        "storage cabinet": "수납장",
+        "storage unit": "수납장",
+        "room divider": "파티션",
+        "room divider cabinet": "파티션 수납장",
+        "wardrobe": "옷장",
+        "closet": "옷장",
+        "dresser": "서랍장",
+        "chest of drawers": "서랍장",
+        "mirror": "거울",
+        "stool": "스툴",
+        "ottoman": "오토만",
+        "bench": "벤치",
+    }
+
+    # 위 표에 없는 조합은 수식어를 떼고 핵심 명사로 판단한다.
+    # 예: "white study desk" -> desk -> 책상, "wall grid shelf" -> shelf -> 선반
+    noun_names = {
+        "bed": "침대",
+        "desk": "책상",
+        "table": "테이블",
+        "chair": "의자",
+        "sofa": "소파",
+        "couch": "소파",
+        "stool": "스툴",
+        "shelf": "선반",
+        "shelves": "선반",
+        "bookcase": "책장",
+        "cabinet": "수납장",
+        "wardrobe": "옷장",
+        "closet": "옷장",
+        "dresser": "서랍장",
+        "drawers": "서랍장",
+        "rug": "러그",
+        "carpet": "카펫",
+        "mirror": "거울",
+        "lamp": "조명",
+        "light": "조명",
+        "lighting": "조명",
+        "plant": "식물",
+        "pot": "화분",
+        "divider": "파티션",
+        "partition": "파티션",
+        "nightstand": "협탁",
+        "bench": "벤치",
+        "ottoman": "오토만",
     }
 
     label = str(
@@ -633,7 +991,29 @@ def translate_furniture_label(
             f"가구 {fallback_number}",
         )
 
-    return label
+    # 이미 한글이면 그대로 쓴다.
+    if re.search(r"[가-힣]", label):
+        return label
+
+    # 수식어가 붙은 영어 라벨은 핵심 명사로 판단한다.
+    # ("white study desk" -> desk -> 책상). 뒤에서부터 찾는 이유는
+    # 영어가 "수식어 + 명사" 순서라 마지막 명사가 본체이기 때문이다.
+    #
+    # 단, type이 unknown이면 추정하지 않는다. "desk basket"의 본체는
+    # 바구니이고 책상이 아니므로, 명사만 보고 고르면 오역이 된다.
+    if normalized_type != "unknown":
+        words = re.findall(r"[a-z]+", lower_label)
+
+        for word in reversed(words):
+            if word in noun_names:
+                return noun_names[word]
+
+    # 끝까지 못 알아보면 타입 한글명으로 떨어진다.
+    # 영어를 그대로 내보내지 않는 것이 이 함수의 계약이다.
+    return type_names.get(
+        normalized_type,
+        f"가구 {fallback_number}",
+    )
 
 
 def _mood_results_to_urls(results):
@@ -1546,6 +1926,11 @@ def create_modified_floorplan(
             if index not in remove_indices
         ]
 
+        # 상품 치수를 방 대비 비율로 바꾸는 데 쓸 방 실측(m).
+        room_data = layout.get("room") or {}
+        room_width_m = room_data.get("width_m")
+        room_depth_m = room_data.get("depth_m")
+
         for order, product in enumerate(
             selected_products
         ):
@@ -1564,6 +1949,15 @@ def create_modified_floorplan(
                     PURCHASE_POSITIONS
                 )
             ]
+
+            # 상품 제목에 치수가 적혀 있으면 실제 크기로 그린다.
+            # (없거나 방 실측이 없으면 0.0 -> 렌더러 표준 크기)
+            size = product_size_fractions(
+                product.get("title"),
+                room_width_m,
+                room_depth_m,
+                product=product,
+            )
 
             marker = product.get(
                 "marker",
@@ -1585,8 +1979,16 @@ def create_modified_floorplan(
                     ),
                     "x": x,
                     "y": y,
-                    "w": 0.0,
-                    "h": 0.0,
+                    "w": (
+                        size["w"]
+                        if size
+                        else 0.0
+                    ),
+                    "h": (
+                        size["h"]
+                        if size
+                        else 0.0
+                    ),
                     "wall": wall_map.get(
                         item_type,
                         "none",
@@ -1607,6 +2009,12 @@ def create_modified_floorplan(
                     ),
                     "product_marker": (
                         marker
+                    ),
+                    # 제목에서 읽어낸 치수 원문(툴팁 표시용).
+                    "size_note": (
+                        size["raw"]
+                        if size
+                        else None
                     ),
                 }
             )
@@ -2062,6 +2470,9 @@ def add_product():
         "link": data.get("link"),
         "image": data.get("image"),
         "marker": marker,
+        # 제목에 치수가 없을 때 크기 추정에 쓴다.
+        "category3": data.get("category3"),
+        "category4": data.get("category4"),
     })
     selected_filename = save_json_cache("selected_products", selected_products)
     session["selected_products_file"] = selected_filename
@@ -2104,10 +2515,25 @@ def result():
         ],
     )
 
-    furniture_choices = session.get(
-        "furniture_choices",
-        [],
-    )
+    # 이름은 저장된 값을 그대로 쓰지 않고 표시 시점에 한글로 바꾼다.
+    # 번역 규칙이 바뀌거나 예전 세션에 영어 라벨이 남아 있어도
+    # 화면에는 항상 한글이 나오게 하기 위함.
+    furniture_choices = [
+        {
+            **choice,
+            "item": translate_furniture_label(
+                choice.get("type"),
+                choice.get("item"),
+                index + 1,
+            ),
+        }
+        for index, choice in enumerate(
+            session.get(
+                "furniture_choices",
+                [],
+            )
+        )
+    ]
 
     purchase_types = session.get(
         "purchase_items",
