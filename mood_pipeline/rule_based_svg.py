@@ -37,22 +37,27 @@ CANVAS_H = ROOM_H + MARGIN_Y * 2 + 120
 GRID = 50
 GRID_SNAP = 20  # 가구 정렬 격자(px)
 
+# 모노톤 팔레트 — 색으로 구분하지 않고 선/톤 차이로만 읽히게 한다.
 STYLE = {
-    "wall": "#2f2a26",
-    "line": "#5f554d",
-    "thin": "#8d8177",
-    "grid": "#eee8e1",
-    "floor": "#fffdf9",
-    "wood": "#d8b58d",
-    "bed": "#fffaf4",
-    "glass": "#dff4f7",
-    "text": "#292522",
-    "muted": "#756d66",
-    "rug": "#efe2d2",
-    "accent": "#8a5a3b",
-    "accent_soft": "#f3e3d7",
-    "existing": "#f7f3ee",
-    "recommend": "#fff3e9",
+    "wall": "#141414",
+    "line": "#3f3f3f",
+    "thin": "#9c9c9c",
+    "grid": "#ededed",
+    "floor": "#ffffff",
+    "wood": "#dcdcdc",
+    "bed": "#fcfcfc",
+    "glass": "#ebebeb",
+    "text": "#111111",
+    "muted": "#767676",
+    "rug": "#b8b8b8",
+    "accent": "#111111",
+    "accent_soft": "#e8e8e8",
+    "existing": "#f5f5f5",
+    "recommend": "#e9e9e9",
+    # 아이소메트릭에서 면을 구분하는 3톤 (위/좌/우)
+    "iso_top": "#f2f2f2",
+    "iso_left": "#d8d8d8",
+    "iso_right": "#c2c2c2",
 }
 
 FONT_FAMILY = "Pretendard, Noto Sans KR, Arial, sans-serif"
@@ -1073,122 +1078,14 @@ def room() -> str:
     )
 
 
-def bed(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="12" fill="#ead9c1" '
-        f'stroke="{STYLE["line"]}" stroke-width="2"/>'
-        f'<rect x="{x + 12}" y="{y + 12}" width="{w - 24}" height="{h - 24}" rx="10" '
-        f'fill="{STYLE["bed"]}" stroke="{STYLE["line"]}" stroke-width="1.8"/>'
-        f'<rect x="{x + 26}" y="{y + 26}" width="{(w - 70) / 2}" height="46" rx="8" '
-        f'fill="#f1eadc" stroke="{STYLE["thin"]}"/>'
-        f'<rect x="{x + 44 + (w - 70) / 2}" y="{y + 26}" width="{(w - 70) / 2}" height="46" '
-        f'rx="8" fill="#f1eadc" stroke="{STYLE["thin"]}"/>'
-        f'</g>'
-    )
-
-
-def rug(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    tass: list[str] = []
-    for yy in range(int(y + 8), int(y + h - 5), 10):
-        tass.append(f'<line x1="{x - 8}" y1="{yy}" x2="{x}" y2="{yy + 3}" stroke="#b08d61"/>')
-        tass.append(f'<line x1="{x + w}" y1="{yy + 3}" x2="{x + w + 8}" y2="{yy}" stroke="#b08d61"/>')
-    return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="2" fill="{STYLE["rug"]}" '
-        f'stroke="#9a6b44" stroke-dasharray="6 4"/>'
-        f'<rect x="{x + 14}" y="{y + 14}" width="{w - 28}" height="{h - 28}" fill="none" '
-        f'stroke="#c7a47a" stroke-dasharray="3 5"/>'
-        f'{"".join(tass)}'
-        f'</g>'
-    )
-
-
-def wood(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    lines = "".join(
-        f'<line x1="{x + 8}" y1="{y + yy}" x2="{x + w - 8}" y2="{y + yy}" '
-        f'stroke="#b89467" opacity="0.5"/>'
-        for yy in range(18, int(h), 22)
-    )
-    return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="{STYLE["wood"]}" '
-        f'stroke="{STYLE["line"]}" stroke-width="2"/>'
-        f"{lines}"
-        f'<rect x="{x + 6}" y="{y + 6}" width="{w - 12}" height="{h - 12}" rx="4" '
-        f'fill="none" stroke="#8b6f50" opacity="0.6"/>'
-        f'</g>'
-    )
-
-
-def desk(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    return (
-        f"<g>{wood(o)}"
-        f'<rect x="{x + w * 0.34}" y="{y + 18}" width="{w * 0.32}" height="{h * 0.45}" '
-        f'rx="3" fill="#475569" stroke="#1f2937"/>'
-        f'<rect x="{x + w * 0.36}" y="{y + 22}" width="{w * 0.28}" height="{h * 0.32}" fill="#e5e7eb"/>'
-        f'<rect x="{x + w * 0.32}" y="{y + h * 0.58}" width="{w * 0.36}" height="8" '
-        f'rx="2" fill="#cbd5e1" stroke="#64748b"/></g>'
-    )
-
-
-def round_obj(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    cx = x + w / 2
-    cy = y + h / 2
-    return (
-        f'<g><circle cx="{cx}" cy="{cy}" r="{min(w, h) / 2 - 3}" fill="#f8fafc" '
-        f'stroke="{STYLE["line"]}" stroke-width="2"/>'
-        f'<path d="M {cx - 16} {cy - 4} q 10 10 20 0" stroke="#9ca3af" fill="none"/>'
-        f'<path d="M {cx - 12} {cy + 12} q 8 -8 18 0" stroke="#9ca3af" fill="none"/>'
-        f'</g>'
-    )
-
-
-def mirror(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" fill="#e7d1ad" '
-        f'stroke="{STYLE["line"]}" stroke-width="2"/>'
-        f'<rect x="{x + 7}" y="{y + 7}" width="{w - 14}" height="{h - 14}" '
-        f'fill="{STYLE["glass"]}" stroke="#94a3b8"/>'
-        f'<line x1="{x + 12}" y1="{y + h - 28}" x2="{x + w - 12}" y2="{y + 18}" '
-        f'stroke="#fff" stroke-width="2"/>'
-        f'</g>'
-    )
-
-
-def lamp(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    cx = x + w / 2
-    return (
-        f"<g>{wood(o)}"
-        f'<circle cx="{cx}" cy="{y + 34}" r="24" fill="#fff8e7" stroke="{STYLE["line"]}" stroke-width="2"/>'
-        f'<circle cx="{cx}" cy="{y + 34}" r="17" fill="#fff" stroke="#d6c9a8"/>'
-        f'<path d="M {cx - 38} {y + 44} h18 v26 h-18 z" fill="#d7b98d" stroke="{STYLE["line"]}"/></g>'
-    )
-
-
-def stool(o: PlacedObject) -> str:
-    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
-    return (
-        f'<g><rect x="{x + 8}" y="{y + 8}" width="{w - 16}" height="{h - 16}" rx="18" '
-        f'fill="#e5e1da" stroke="{STYLE["line"]}" stroke-width="2"/>'
-        f'<rect x="{x + 14}" y="{y + 14}" width="{w - 28}" height="{h - 28}" rx="14" '
-        f'fill="#d9d6cf" stroke="#9ca3af"/>'
-        f'</g>'
-    )
-
-
 def window(o: PlacedObject) -> str:
     x, y, w, h = o["x"], o["y"], o["w"], o["h"]
     return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" fill="#e0f2fe" '
+        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{STYLE["glass"]}" '
         f'stroke="{STYLE["line"]}" stroke-width="2"/>'
         f'<line x1="{x + w / 2}" y1="{y}" x2="{x + w / 2}" y2="{y + h}" stroke="{STYLE["line"]}"/>'
         f'<line x1="{x + 8}" y1="{y + h / 2}" x2="{x + w - 8}" y2="{y + h / 2}" '
-        f'stroke="#60a5fa" stroke-width="1.5"/></g>'
+        f'stroke="{STYLE["thin"]}" stroke-width="1.5"/></g>'
     )
 
 
@@ -1198,10 +1095,10 @@ def door(o: PlacedObject) -> str:
     hy = y + h
     r = min(145, h)
     return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" fill="#f8fafc" '
+        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{STYLE["floor"]}" '
         f'stroke="{STYLE["line"]}" stroke-width="2"/>'
         f'<path d="M {hx} {hy} A {r} {r} 0 0 0 {hx - r} {hy - r}" fill="none" '
-        f'stroke="#475569" stroke-dasharray="6 4"/>'
+        f'stroke="{STYLE["thin"]}" stroke-dasharray="6 4"/>'
         f'<line x1="{hx}" y1="{hy}" x2="{hx - r}" y2="{hy}" stroke="{STYLE["line"]}" stroke-width="3"/></g>'
     )
 
@@ -1209,28 +1106,156 @@ def door(o: PlacedObject) -> str:
 def generic(o: PlacedObject) -> str:
     x, y, w, h = o["x"], o["y"], o["w"], o["h"]
     return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="#f8fafc" '
-        f'stroke="{STYLE["line"]}" stroke-width="2"/>'
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" '
+        f'fill="none" stroke="{STYLE["line"]}" stroke-width="1.5" rx="2"/>'
+    )
+
+
+ISO_K = 0.5          # y축 압축비(2:1 아이소메트릭)
+# 타입별 높이 계수 — 바닥 짧은 변(min(w,h), 최대 120) 대비.
+# 실제 가구 높이 비율에 맞춰 침대는 낮고 선반은 높게.
+ISO_HEIGHT = {
+    "bed": 0.34,
+    "shelf": 1.60,
+    "cabinet": 1.15,
+    "table": 0.62,
+    "low_table": 0.30,
+    "desk": 0.66,
+    "mirror": 1.45,
+    "lamp": 1.05,
+    "stool": 0.45,
+    "chair": 0.80,
+    "floor_chair": 0.30,
+    "unknown": 0.55,
+}
+
+
+def _iso_pts(x: float, y: float, w: float, h: float):
+    """바닥 사각형 -> 아이소메트릭 평행사변형 4점.
+
+    45° 회전이 아니라 전단(shear)이다. 회전시키면 폭보다 깊은 가구
+    (벽 수납장 90x336 등)가 위아래로 뾰족한 다이아몬드가 되어
+    '눕힌 사각형'으로 읽히지 않는다. 전단은 가로 변을 수평으로
+    유지하므로 어떤 비율에서도 상판이 상판으로 보인다.
+
+    반환 순서: 뒤왼 -> 뒤오른 -> 앞오른 -> 앞왼 (시계방향)
+    """
+    d = h * ISO_K          # 눕힌 깊이
+    # 전단량. 뒤/앞을 절반씩 밀어 원래 자리 안에 머문다.
+    # 폭보다 깊이가 훨씬 큰 가구(벽거울 28x401 등)는 전단이 폭을 넘어
+    # 벽을 삐져나가므로 폭의 절반으로 제한한다.
+    skew = min(d / 2, w / 2)
+    top_y = y + h / 2 - d / 2
+    bot_y = top_y + d
+    return (
+        (x + skew, top_y),          # 뒤왼
+        (x + w, top_y),             # 뒤오른
+        (x + w - skew, bot_y),      # 앞오른
+        (x, bot_y),                 # 앞왼
+    )
+
+
+def _poly(pts, fill: str, sw: float = 1.2) -> str:
+    d = " ".join(f"{px:.1f},{py:.1f}" for px, py in pts)
+    return (
+        f'<polygon points="{d}" fill="{fill}" '
+        f'stroke="{STYLE["line"]}" stroke-width="{sw}" '
+        f'stroke-linejoin="round"/>'
+    )
+
+
+def _iso_lift(o: PlacedObject) -> float:
+    """가구 높이(px). 바닥 면적이 아니라 타입으로 정해 과장을 막는다.
+    세워 올린 윗면이 방 천장(위쪽 벽)을 넘지 않도록 잘라낸다."""
+    base = min(o["w"], o["h"])
+    lift = ISO_HEIGHT.get(o["type"], 0.5) * min(base, 120)
+    # 바닥 면의 최상단 y에서 위로 lift만큼 올라가므로, 방 안에 남을 만큼만.
+    top_y = o["y"] + o["h"] / 2 - (o["h"] * ISO_K) / 2
+    headroom = top_y - (MARGIN_Y + 6)
+    return max(6.0, min(lift, headroom))
+
+
+def iso_box(o: PlacedObject) -> str:
+    """아이소메트릭 직육면체. 천면·정면·측면을 톤으로 구분."""
+    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
+    lift = _iso_lift(o)
+    bl, br, fr, fl = _iso_pts(x, y, w, h)
+
+    def up(p):
+        return (p[0], p[1] - lift)
+
+    # 보이는 면만: 정면(앞), 측면(오른), 천면
+    front = _poly([fl, fr, up(fr), up(fl)], STYLE["iso_left"])
+    side = _poly([fr, br, up(br), up(fr)], STYLE["iso_right"])
+    top = _poly([up(bl), up(br), up(fr), up(fl)], STYLE["iso_top"])
+    return f"<g>{front}{side}{top}</g>"
+
+
+def iso_flat(o: PlacedObject) -> str:
+    """러그처럼 높이가 없는 것 — 눕힌 면만."""
+    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
+    pts = _iso_pts(x, y, w, h)
+    d = " ".join(f"{px:.1f},{py:.1f}" for px, py in pts)
+    return (
+        f'<polygon points="{d}" fill="none" '
+        f'stroke="{STYLE["rug"]}" stroke-width="1.6" '
+        f'stroke-dasharray="6 4"/>'
+    )
+
+
+def iso_round(o: PlacedObject) -> str:
+    """의자·스툴 — 눕힌 타원 좌판 + 기둥 + 바닥 접지.
+
+    단, 바닥이 정사각형에서 크게 벗어난 좌석(소파를 chair로 인식한
+    328x102 등)은 타원으로 그리면 납작한 팬케이크가 되므로
+    직육면체로 대신 그린다.
+    """
+    x, y, w, h = o["x"], o["y"], o["w"], o["h"]
+    if max(w, h) > min(w, h) * 1.8:
+        return iso_box(o)
+    d = h * ISO_K
+    cx = x + w / 2
+    cy = y + h / 2
+    rx = w / 2
+    ry = d / 2
+    lift = _iso_lift(o)
+    return (
+        f'<g>'
+        f'<ellipse cx="{cx}" cy="{cy}" rx="{rx * 0.5}" ry="{ry * 0.5}" '
+        f'fill="none" stroke="{STYLE["thin"]}" stroke-width="1" '
+        f'stroke-dasharray="2 3"/>'
+        f'<line x1="{cx}" y1="{cy}" x2="{cx}" y2="{cy - lift}" '
+        f'stroke="{STYLE["line"]}" stroke-width="1.5"/>'
+        f'<ellipse cx="{cx}" cy="{cy - lift}" rx="{rx}" ry="{ry}" '
+        f'fill="{STYLE["iso_top"]}" stroke="{STYLE["line"]}" stroke-width="1.2"/>'
         f'</g>'
     )
 
 
-DRAWERS: dict[str, Any] = {
-    "bed": bed,
-    "rug": rug,
-    "shelf": wood,
-    "cabinet": wood,
-    "table": wood,
-    "low_table": wood,
-    "desk": desk,
-    "mirror": mirror,
-    "lamp": lamp,
-    "stool": stool,
-    "chair": round_obj,
-    "floor_chair": round_obj,
+ISO_DRAWERS: dict[str, Any] = {
+    "bed": iso_box,
+    "rug": iso_flat,
+    "shelf": iso_box,
+    "cabinet": iso_box,
+    "table": iso_box,
+    "low_table": iso_box,
+    "desk": iso_box,
+    "mirror": iso_box,
+    "lamp": iso_round,
+    "stool": iso_round,
+    "chair": iso_round,
+    "floor_chair": iso_round,
     "window": window,
     "door": door,
 }
+
+
+# ──────────────────────────────────────────────────────
+# 스타일 4: 아이콘 — 가구를 실제 크기 사각형으로 그리지 않고,
+# 자리 중앙에 일정한 크기의 심볼 하나로 표시한다.
+# 배치 관계만 빠르게 읽히는 대신 크기 정보는 버린다.
+# ──────────────────────────────────────────────────────
+DRAWERS: dict[str, Any] = ISO_DRAWERS
 
 
 def selected_product_outline(
