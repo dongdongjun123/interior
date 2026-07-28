@@ -290,6 +290,95 @@ def parse_product_dimensions(title):
                 "raw": match.group(0),
             }
 
+    # 5) 단위 없는 단독 숫자 — 가구 업계는 폭을 mm로 그냥 적는다.
+    #    "유리쇼케이스 600", "벽선반 400", "마켓비 책상 1100"
+    #    후보가 여러 개면 어느 축인지 알 수 없으므로 쓰지 않는다.
+    solo = [
+        int(v)
+        for v in re.findall(
+            r"(?<![0-9A-Za-z])"
+            r"([3-9]\d{2}|1\d{3}|2[0-4]\d{2})"
+            r"(?![0-9A-Za-z])",
+            text,
+        )
+    ]
+    solo = [
+        v
+        for v in solo
+        if 300 <= v <= 2400
+    ]
+    if len(set(solo)) == 1:
+        return {
+            "w_mm": solo[0],
+            "d_mm": None,
+            "raw": f"{solo[0]}mm",
+        }
+
+    return None
+
+
+# 네이버 category4는 꽤 구체적이다("사이드테이블", "일자형 책상",
+# "인테리어의자"). 제목에 치수가 없을 때 이 분류로 현실적인 표준
+# 크기를 준다. 특히 "사이드테이블"을 식탁 크기로 그리던 오류를 막는다.
+# 값은 (가로mm, 세로mm).
+CATEGORY_STD_SIZE_MM = {
+    "사이드테이블": (450, 450),
+    "좌식테이블": (800, 600),
+    "접이식테이블": (800, 600),
+    "식탁테이블": (1200, 800),
+    "인테리어의자": (450, 500),
+    "식탁의자": (450, 500),
+    "사무용의자": (600, 600),
+    "스툴": (400, 400),
+    "일자형 책상": (1200, 600),
+    "ㄱ자형 책상": (1400, 1400),
+    "학생용 책상": (1000, 600),
+    "컴퓨터 책상": (1200, 600),
+    "장식장": (900, 400),
+    "서랍장": (800, 450),
+    "옷장": (1000, 600),
+    "책장": (800, 300),
+    "벽선반": (600, 200),
+    "선반": (800, 300),
+    "협탁": (450, 400),
+    # category4가 비어 있고 category3만 오는 경우도 흔하다.
+    "수납장": (800, 400),
+    "러그": (1500, 2000),
+    "카페트": (1500, 2000),
+    "침대": (1400, 2000),
+    "소파": (1800, 900),
+    "테이블": (1000, 600),
+    "의자": (450, 500),
+    "책상": (1200, 600),
+    # 조명은 바닥 면적이 작다. 스탠드/펜던트 구분 없이 보수적으로.
+    "인테리어조명": (350, 350),
+    "조명": (350, 350),
+    "스탠드": (400, 400),
+    "장스탠드": (400, 400),
+    "거울": (500, 150),
+    "화분": (300, 300),
+    "관엽식물": (350, 350),
+    "공기정화식물": (350, 350),
+    "선인장": (200, 200),
+    "다육식물": (200, 200),
+}
+
+
+def category_std_size_mm(product):
+    """category3/4로 표준 크기를 추정한다. 모르면 None."""
+    for key in ("category4", "category3"):
+        name = str(
+            product.get(key) or ""
+        ).strip()
+        if name in CATEGORY_STD_SIZE_MM:
+            width, depth = (
+                CATEGORY_STD_SIZE_MM[name]
+            )
+            return {
+                "w_mm": width,
+                "d_mm": depth,
+                "raw": name,
+            }
     return None
 
 
@@ -297,9 +386,11 @@ def product_size_fractions(
     title,
     room_width_m,
     room_depth_m,
+    product=None,
 ):
     """상품 치수를 방 크기 대비 0~1 비율로 바꾼다.
 
+    제목에서 치수를 못 찾으면 네이버 category로 표준 크기를 추정한다.
     방 실측(m)이 없으면 비율을 계산할 기준이 없으므로 None을 돌려준다.
     """
     if not room_width_m or not room_depth_m:
@@ -315,6 +406,11 @@ def product_size_fractions(
         return None
 
     dims = parse_product_dimensions(title)
+
+    # 제목에 없으면 카테고리로 추정한다(정확도는 낮지만 타입 표준보다 낫다).
+    if not dims and product:
+        dims = category_std_size_mm(product)
+
     if not dims:
         return None
 
@@ -1860,6 +1956,7 @@ def create_modified_floorplan(
                 product.get("title"),
                 room_width_m,
                 room_depth_m,
+                product=product,
             )
 
             marker = product.get(
@@ -2373,6 +2470,9 @@ def add_product():
         "link": data.get("link"),
         "image": data.get("image"),
         "marker": marker,
+        # 제목에 치수가 없을 때 크기 추정에 쓴다.
+        "category3": data.get("category3"),
+        "category4": data.get("category4"),
     })
     selected_filename = save_json_cache("selected_products", selected_products)
     session["selected_products_file"] = selected_filename

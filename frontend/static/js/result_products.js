@@ -63,6 +63,9 @@
           title: product.title,
           link: product.link,
           image: product.image,
+          // 제목에 치수가 없을 때 서버가 카테고리로 크기를 추정한다.
+          category3: product.category3,
+          category4: product.category4,
         }),
       });
       const data = await res.json();
