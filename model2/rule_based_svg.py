@@ -1526,8 +1526,41 @@ def draw_obj(
     if draggable:
         data_attrs += ' data-draggable="1"'
 
+    # 마우스를 올렸을 때 보여줄 정보. JS 툴팁이 이 값들을 읽는다.
+    label = escape(str(obj.get("label") or ""))
+    type_name = escape(
+        KOREAN_LABELS.get(obj["type"], obj["type"])
+    )
+    data_attrs += f' data-label="{label}"'
+    data_attrs += f' data-type-name="{type_name}"'
+
+    confidence = obj.get("confidence")
+    if confidence is not None:
+        data_attrs += f' data-confidence="{float(confidence):.2f}"'
+
+    # 방 대비 차지 비율(%) — 크기를 감으로 알 수 있게.
+    area_pct = (
+        float(obj["w"]) * float(obj["h"]) / (ROOM_W * ROOM_H) * 100
+    )
+    data_attrs += f' data-area-pct="{area_pct:.1f}"'
+
+    if obj.get("product_title"):
+        data_attrs += (
+            f' data-product-title='
+            f'"{escape(str(obj["product_title"]))}"'
+        )
+    if obj.get("product_link"):
+        data_attrs += (
+            f' data-product-link='
+            f'"{escape(str(obj["product_link"]))}"'
+        )
+
+    # SVG 기본 툴팁도 함께 둔다(JS가 실패해도 이름은 보이게).
+    native_tip = f"<title>{label or type_name}</title>"
+
     return (
         f'<g{data_attrs}>'
+        f'{native_tip}'
         f'{selected_product_outline(obj)}'
         f'{object_svg}'
         f'{selected_product_marker(obj)}'
