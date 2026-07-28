@@ -660,16 +660,43 @@ def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, 
         conf = float(obj.get("confidence", 0.5) or 0.5)
         prev = windows_by_wall.get(wall)
         if prev is None or conf > float(prev.get("confidence", 0) or 0):
+            # 벽에 딱 붙이는 좌표만 보정하고, 벽을 따라가는 위치와 폭은
+            # Gemini가 본 값을 그대로 쓴다. 전에는 전부 벽 중앙·폭 0.35로
+            # 덮어써서 "오른쪽으로 치우친 넓은 창"이 "중앙의 좁은 창"이 됐다.
             cx, cy = wall_center.get(wall, (0.5, 0.95))
+            try:
+                gx = float(obj.get("x", cx))
+                gy = float(obj.get("y", cy))
+            except (TypeError, ValueError):
+                gx, gy = cx, cy
+
+            if wall in ("top", "bottom"):
+                # 수평 벽: x(벽을 따라가는 위치)는 유지, y만 벽에 붙인다.
+                x_value, y_value = clamp(gx, 0.12, 0.88), cy
+            else:
+                x_value, y_value = cx, clamp(gy, 0.12, 0.88)
+
+            # 창 길이는 벽 방향에 따라 다른 축에 들어온다.
+            # 수평 벽(top/bottom)은 w가 길이, 세로 벽(left/right)은 h가 길이.
+            length_key = (
+                "w" if wall in ("top", "bottom") else "h"
+            )
+            try:
+                span = float(obj.get(length_key) or 0.0)
+            except (TypeError, ValueError):
+                span = 0.0
+            # 벽 길이의 15~70%만 받는다(두께를 길이로 오인하는 값 방어).
+            span = clamp(span, 0.15, 0.70) if span > 0.05 else 0.35
+
             windows_by_wall[wall] = {
                 **obj,
                 "type": "window",
                 "label": "Window",
                 "wall": wall,
-                "x": cx,
-                "y": cy,
-                "w": 0.35,
-                "h": 0.03,
+                "x": x_value,
+                "y": y_value,
+                "w": span if length_key == "w" else 0.03,
+                "h": span if length_key == "h" else 0.03,
                 "confidence": conf,
             }
 
@@ -883,13 +910,21 @@ def wall_attach(o: PlacedObject) -> PlacedObject:
     wall = o.get("wall", "none")
 
     if t == "window":
+        # 두께는 벽에 붙이려고 고정하되, 창 길이는 Gemini가 본 값을 살린다.
+        # (전에는 STD_SIZE로 덮어써서 모든 창이 같은 폭 240px이 됐다.)
         wall = wall if wall in ("top", "bottom", "left", "right") else "bottom"
+        std_w, std_h = STD_SIZE["window"]
         if wall in ("top", "bottom"):
-            o["w"], o["h"] = STD_SIZE["window"]
+            span = o["w"] if o["w"] > 40 else std_w
+            o["w"] = clamp(span, 90, ROOM_W * 0.7)
+            o["h"] = std_h
             x = clamp(o["cx"] - o["w"] / 2, MARGIN_X + 80, MARGIN_X + ROOM_W - o["w"] - 80)
             y = MARGIN_Y - 7 if wall == "top" else MARGIN_Y + ROOM_H - 13
         else:
-            o["w"], o["h"] = 20, 220
+            # 세로 벽에서는 창 길이가 h(세로)다.
+            span = o["h"] if o["h"] > 40 else 220
+            o["w"] = std_h
+            o["h"] = clamp(span, 90, ROOM_H * 0.7)
             x = MARGIN_X - 7 if wall == "left" else MARGIN_X + ROOM_W - 13
             y = clamp(o["cy"] - o["h"] / 2, MARGIN_Y + 80, MARGIN_Y + ROOM_H - o["h"] - 80)
     elif t == "door":
