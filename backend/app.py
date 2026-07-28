@@ -579,23 +579,99 @@ def translate_furniture_label(
         "plant": "식물",
         "sofa": "소파",
         "couch": "소파",
+        "unknown": "기타 물건",
     }
 
     label_aliases = {
         "single bed": "싱글 침대",
+        "double bed": "더블 침대",
+        "queen bed": "퀸 침대",
+        "king bed": "킹 침대",
+        "bunk bed": "이층 침대",
         "bed": "침대",
         "nightstand": "협탁",
+        "bedside table": "협탁",
         "side table": "협탁",
         "tv stand": "TV장",
         "table lamp": "탁상 조명",
+        "desk lamp": "책상 조명",
+        "bedside lamp": "침대 조명",
         "floor lamp": "스탠드 조명",
+        "pendant lamp": "펜던트 조명",
+        "pendant lamps": "펜던트 조명",
+        "ceiling lamp": "천장 조명",
         "low table": "낮은 테이블",
+        "coffee table": "커피 테이블",
+        "dining table": "식탁",
+        "round table": "원형 테이블",
+        "study desk": "책상",
+        "office desk": "책상",
         "desk": "책상",
+        "office chair": "사무 의자",
+        "armchair": "안락의자",
+        "lounge chair": "라운지 의자",
         "chair": "의자",
+        "sofa": "소파",
+        "couch": "소파",
+        "sectional sofa": "코너 소파",
+        "corner sofa": "코너 소파",
         "rug": "러그",
+        "carpet": "카펫",
+        "area rug": "러그",
         "plant": "식물",
+        "potted plant": "화분",
+        "plant pot": "화분",
         "shelf": "선반",
+        "bookshelf": "책장",
+        "book shelf": "책장",
+        "wall shelf": "벽 선반",
+        "shelf unit": "선반",
         "cabinet": "수납장",
+        "storage cabinet": "수납장",
+        "storage unit": "수납장",
+        "room divider": "파티션",
+        "room divider cabinet": "파티션 수납장",
+        "wardrobe": "옷장",
+        "closet": "옷장",
+        "dresser": "서랍장",
+        "chest of drawers": "서랍장",
+        "mirror": "거울",
+        "stool": "스툴",
+        "ottoman": "오토만",
+        "bench": "벤치",
+    }
+
+    # 위 표에 없는 조합은 수식어를 떼고 핵심 명사로 판단한다.
+    # 예: "white study desk" -> desk -> 책상, "wall grid shelf" -> shelf -> 선반
+    noun_names = {
+        "bed": "침대",
+        "desk": "책상",
+        "table": "테이블",
+        "chair": "의자",
+        "sofa": "소파",
+        "couch": "소파",
+        "stool": "스툴",
+        "shelf": "선반",
+        "shelves": "선반",
+        "bookcase": "책장",
+        "cabinet": "수납장",
+        "wardrobe": "옷장",
+        "closet": "옷장",
+        "dresser": "서랍장",
+        "drawers": "서랍장",
+        "rug": "러그",
+        "carpet": "카펫",
+        "mirror": "거울",
+        "lamp": "조명",
+        "light": "조명",
+        "lighting": "조명",
+        "plant": "식물",
+        "pot": "화분",
+        "divider": "파티션",
+        "partition": "파티션",
+        "nightstand": "협탁",
+        "bench": "벤치",
+        "ottoman": "오토만",
     }
 
     label = str(
@@ -633,7 +709,29 @@ def translate_furniture_label(
             f"가구 {fallback_number}",
         )
 
-    return label
+    # 이미 한글이면 그대로 쓴다.
+    if re.search(r"[가-힣]", label):
+        return label
+
+    # 수식어가 붙은 영어 라벨은 핵심 명사로 판단한다.
+    # ("white study desk" -> desk -> 책상). 뒤에서부터 찾는 이유는
+    # 영어가 "수식어 + 명사" 순서라 마지막 명사가 본체이기 때문이다.
+    #
+    # 단, type이 unknown이면 추정하지 않는다. "desk basket"의 본체는
+    # 바구니이고 책상이 아니므로, 명사만 보고 고르면 오역이 된다.
+    if normalized_type != "unknown":
+        words = re.findall(r"[a-z]+", lower_label)
+
+        for word in reversed(words):
+            if word in noun_names:
+                return noun_names[word]
+
+    # 끝까지 못 알아보면 타입 한글명으로 떨어진다.
+    # 영어를 그대로 내보내지 않는 것이 이 함수의 계약이다.
+    return type_names.get(
+        normalized_type,
+        f"가구 {fallback_number}",
+    )
 
 
 def _mood_results_to_urls(results):
@@ -2104,10 +2202,25 @@ def result():
         ],
     )
 
-    furniture_choices = session.get(
-        "furniture_choices",
-        [],
-    )
+    # 이름은 저장된 값을 그대로 쓰지 않고 표시 시점에 한글로 바꾼다.
+    # 번역 규칙이 바뀌거나 예전 세션에 영어 라벨이 남아 있어도
+    # 화면에는 항상 한글이 나오게 하기 위함.
+    furniture_choices = [
+        {
+            **choice,
+            "item": translate_furniture_label(
+                choice.get("type"),
+                choice.get("item"),
+                index + 1,
+            ),
+        }
+        for index, choice in enumerate(
+            session.get(
+                "furniture_choices",
+                [],
+            )
+        )
+    ]
 
     purchase_types = session.get(
         "purchase_items",

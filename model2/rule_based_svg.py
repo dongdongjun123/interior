@@ -79,30 +79,65 @@ KOREAN_LABELS = {
     "plant": "식물",
     "door": "문",
     "window": "창문",
-    "unknown": "가구",
+    "unknown": "기타 물건",
 }
 
 
+# 영어 라벨 -> 화면용 한글 이름.
+# backend/app.py의 translate_furniture_label과 같은 이름이 나오도록 맞춘다
+# (같은 가구가 평면도 범례와 '가구 선택 요약'에서 다르게 보이면 안 된다).
 LABEL_ALIASES = {
     "single bed": "싱글 침대",
+    "double bed": "더블 침대",
+    "queen bed": "퀸 침대",
+    "king bed": "킹 침대",
     "bed": "침대",
     "desk": "책상",
+    "study desk": "책상",
+    "office desk": "책상",
     "table": "테이블",
     "low table": "낮은 테이블",
+    "coffee table": "커피 테이블",
+    "dining table": "식탁",
     "nightstand": "협탁",
+    "bedside table": "협탁",
     "side table": "협탁",
     "tv stand": "TV장",
     "table lamp": "탁상 조명",
+    "desk lamp": "책상 조명",
+    "bedside lamp": "침대 조명",
     "floor lamp": "스탠드 조명",
+    "pendant lamp": "펜던트 조명",
     "shelf": "선반",
+    "bookshelf": "책장",
+    "shelf unit": "선반",
     "cabinet": "수납장",
+    "storage cabinet": "수납장",
+    "storage unit": "수납장",
+    "room divider": "파티션",
+    "room divider cabinet": "파티션 수납장",
+    "wardrobe": "옷장",
+    "closet": "옷장",
+    "dresser": "서랍장",
     "chair": "의자",
+    "office chair": "사무 의자",
+    "armchair": "안락의자",
+    "lounge chair": "라운지 의자",
     "floor chair": "좌식 의자",
+    "sofa": "소파",
+    "couch": "소파",
+    "sectional sofa": "코너 소파",
+    "corner sofa": "코너 소파",
     "stool": "스툴",
+    "ottoman": "오토만",
+    "bench": "벤치",
     "rug": "러그",
+    "carpet": "카펫",
+    "area rug": "러그",
     "mirror": "거울",
     "lamp": "조명",
     "plant": "식물",
+    "potted plant": "화분",
     "door": "문",
     "window": "창문",
 }
@@ -254,7 +289,7 @@ def display_label(
     ):
         return KOREAN_LABELS.get(
             object_type,
-            "가구",
+            "기타 물건",
         )
 
     # 이미 한글 이름이면 그대로 사용
@@ -264,9 +299,15 @@ def display_label(
     ):
         return label_text
 
+    # 별칭에 없는 영어 라벨은 수식어를 떼고 핵심 명사로 판단한다.
+    # ("wall grid shelf" -> shelf -> 선반). 영어를 그대로 내보내지 않는다.
+    for word in reversed(re.findall(r"[a-z]+", normalized)):
+        if word in KOREAN_LABELS:
+            return KOREAN_LABELS[word]
+
     return KOREAN_LABELS.get(
         object_type,
-        label_text or "가구",
+        "기타 물건",
     )
 
 
