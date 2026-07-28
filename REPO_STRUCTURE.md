@@ -24,8 +24,7 @@ interior/
 │   ├── search.py              # 프롬프트 → 유사 이미지 top-K (CLIP 코사인 유사도)
 │   ├── preprocess.py          # 이미지 수집·전처리
 │   ├── gemini_extract.py      # Gemini 특징 추출 + UMAP 2D 시각화(분석용)
-│   ├── run_gemini_features.py # gemini_extract 실행 래퍼(CLI)
-│   └── notebooks/06_gemini_features.ipynb
+│   └── run_gemini_features.py # gemini_extract 실행 래퍼(CLI)
 │
 ├── model2/                    # ② 사진 → 2D 평면도 생성 (Gemini + 규칙 렌더러)
 │   ├── __init__.py

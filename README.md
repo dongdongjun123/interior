@@ -87,6 +87,5 @@ python orchestration/run_floorplan.py <사진경로>
 ## 참고
 
 - 무드 검색(`model1/search.py`, 프롬프트→유사 이미지 CLIP 검색)은 구현되어 backend `/mood-search`에서 사용 중.
-- `model1/notebooks/06_gemini_features.ipynb` 는 실험용. 일부 셀은 미구현 모듈(`prompt_floorplan.py`)에 의존해 동작하지 않음.
 - 실행 규칙 요약: **웹 서버는 `backend/`에서, 모델 스크립트는 루트에서.**
 - 자세한 재구조화 기록은 [REPO_STRUCTURE.md](REPO_STRUCTURE.md) 참고.
