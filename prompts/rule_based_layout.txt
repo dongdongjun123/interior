@@ -32,6 +32,24 @@ Worked example (bed in the back-right corner, low table centered near the front)
 - A low table in the middle, slightly toward the camera → x≈0.5, y≈0.6, w≈0.22, h≈0.16, wall "none".
 - A window on the back wall → x≈0.5, y≈0.03, w≈0.4, h≈0.03, wall "top".
 
+Report only what you SEE. Do not invent, complete, or assume:
+- Do NOT add furniture that a room "usually" has. If there is no visible chair,
+  return no chair. An incomplete-but-true layout beats a plausible-but-wrong one.
+- If an object is cut off, blurred, or you cannot tell what it is, either omit it
+  or return it as type "unknown" with a LOW confidence — do not guess a specific type.
+- Never merge two objects into one, and never split one object into two.
+
+confidence — calibrate it, do not default to a high number:
+- 0.90–1.00  Unmistakable: fully visible, sharp, you could name the product category.
+- 0.70–0.89  Clear enough: mostly visible, minor occlusion, type is not in doubt.
+- 0.50–0.69  Probable: partly hidden or small in frame; the type is your best read.
+- 0.30–0.49  Uncertain: you are inferring from shape/context more than from detail.
+- below 0.30 Guess. Prefer type "unknown", or omit the object.
+Spread your scores across this range. If most of your objects score above 0.9,
+you are overconfident — re-check each one and lower the ones you inferred.
+Position and size confidence count too: a clearly-a-bed whose location you had to
+guess is NOT 0.95.
+
 Rules:
 - room.aspect_ratio = room WIDTH ÷ DEPTH. Estimate it honestly (0.6–2.0); the canvas is shaped by it.
 - Prioritize correct type and relative placement over quantity.
@@ -44,6 +62,8 @@ Rules:
 - Items against a wall: set wall to left|right|top|bottom and place x or y near that edge.
 - Windows: at most ONE window object per wall; w≈0.3–0.5, h≈0.03; wall must match the actual wall.
 - Skip small accessories (table lamp, laptop, plant on stool) unless they define layout.
-- Include at most 2 lamps total. confidence < 0.6 → omit the object.
+- Include at most 2 lamps total.
+- Report low-confidence objects WITH their low score; the renderer decides what to
+  keep. Do not silently drop something just because you are unsure — score it honestly.
 - Prefer 6–12 important objects, not 15+ overlapping items.
 - Include doors/windows only if clearly visible.

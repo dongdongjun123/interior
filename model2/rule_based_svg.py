@@ -514,8 +514,49 @@ def merge_subparts(objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return kept
 
 
+# 타입별 최소 신뢰도. 이 값 미만이면 "그 가구로 인정하지 않고" 버린다.
+#
+# 큰 가구는 낮게 둔다 — 침대를 놓치면 방이 텅 비어 평면도가 쓸모없어지고,
+# 애초에 큰 가구는 오인식이 드물다. 반대로 소품(조명·화분·스툴)은 잘못
+# 넣으면 도면만 시끄러워지므로 높게 잡는다. unknown은 정체를 모르는 것이라
+# 가장 엄격하게 본다.
+#
+# 값을 정한 근거: 실측(사진 3장 x 13객체)에서 Gemini는 프롬프트로 보정을
+# 요구해도 0.70 아래를 거의 내놓지 않고 중앙값이 0.90이었다. 그래서 큰
+# 가구 기준을 0.3~0.4로 두면 아무것도 안 걸러진다. 실제로 변별이 일어나는
+# 0.70~0.90 구간에 기준을 놓는다.
+CONF_MIN: dict[str, float] = {
+    # 놓치면 평면도가 무의미해지는 큰 가구 — 관대하게
+    "bed": 0.70,
+    "cabinet": 0.75,
+    "shelf": 0.75,
+    "desk": 0.75,
+    "table": 0.75,
+    "low_table": 0.75,
+    "rug": 0.75,
+    # 배치의 뼈대는 되지만 오인식도 잦은 것
+    "chair": 0.80,
+    "floor_chair": 0.80,
+    "door": 0.80,
+    "window": 0.80,
+    # 잘못 들어가면 도면만 시끄러워지는 소품 — 엄격하게
+    "mirror": 0.85,
+    "stool": 0.85,
+    "lamp": 0.85,
+    "plant": 0.85,
+    # 정체 불명 — 가장 엄격
+    "unknown": 0.90,
+}
+
+CONF_MIN_DEFAULT = 0.8
+
+
+def conf_threshold(object_type: str) -> float:
+    return CONF_MIN.get(object_type, CONF_MIN_DEFAULT)
+
+
 def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """부분품 병합, 저신뢰 소품 제거, 벽당 창문 1개, low_table 주변 chair → floor_chair."""
+    """부분품 병합, 저신뢰 객체 제거, 벽당 창문 1개, low_table 주변 chair → floor_chair."""
     objects = merge_subparts(objects)
     filtered: list[dict[str, Any]] = []
     lamp_count = 0
@@ -525,7 +566,8 @@ def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, 
         conf = float(obj.get("confidence", 0.5) or 0.5)
         label = (obj.get("label") or "").lower()
 
-        if t in ("lamp", "plant") and conf < 0.65:
+        # 타입별 임계값 미달 → 그 가구로 인정하지 않는다.
+        if conf < conf_threshold(t):
             continue
         if t == "lamp":
             lamp_count += 1
