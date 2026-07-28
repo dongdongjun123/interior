@@ -1,5 +1,5 @@
-# modules/detector_florence.py
-import modules.gpu_config
+# module/detector_florence.py
+import module.gpu_config
 import torch
 from PIL import Image
 from transformers import AutoProcessor, AutoModelForCausalLM

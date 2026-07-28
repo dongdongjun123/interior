@@ -2,8 +2,8 @@
 <nav class="navbar navbar-expand-md border-bottom bg-white sticky-top">
   <div class="container-fluid">
 
-    <!-- 로고 -->
-    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+    <!-- 로고: 세션을 초기화하고 홈으로 돌아간다 -->
+    <a class="navbar-brand fw-bold" href="{{ url_for('home') }}">
       🏠 AI Interior
     </a>
 
@@ -14,9 +14,9 @@
     <div class="collapse navbar-collapse" id="mainNav">
       <!-- 메뉴 -->
       <ul class="navbar-nav mx-auto gap-3">
-        <li class="nav-item"><a class="nav-link" href="#">Gallery</a></li>
-        <li class="nav-item"><a class="nav-link" href="#">My Designs</a></li>
-        <li class="nav-item"><a class="nav-link" href="#">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('gallery') }}">Gallery</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('my_designs') }}">My Designs</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('about') }}">About</a></li>
       </ul>
 
       <!-- 프로필 자리 -->

@@ -9,6 +9,8 @@ interior/
 ├── model1/        # 사진 → 2D 평면도 (Gemini) — 역할별 모듈로 분리
 ├── model2/        # 무드 분석 → 특징 추출 (Gemini, CLI)
 ├── mood_pipeline/ # model1·model2 공용 패키지 (config, gemini_extract, search, rule_based_svg …)
+├── room-object-detection/  # Florence-2 가구 탐지 (별도 환경 — transformers 4.49 고정)
+├── orchestration/ # 사진 → Florence 탐지 → Gemini 근거주입 → SVG 오케스트레이터
 ├── prompts/       # 모든 Gemini 프롬프트(*.txt) — model1·mood_pipeline 공유
 ├── images/ data/ output/   # 데이터·산출물
 ├── requirements.txt        # 통합 의존성 (가상환경 하나)
@@ -71,7 +73,14 @@ python -m model1.cli --help
 
 # 무드 특징 추출 + UMAP
 python model2/run_gemini_features.py --help
+
+# 사진 → Florence 탐지 → Gemini 근거주입 → SVG (오케스트레이터)
+python orchestration/run_floorplan.py <사진경로>
 ```
+
+> **Florence 탐지는 선택**입니다. `.env`의 `ROOMDET_PYTHON`을 비우면 Florence 없이 Gemini만 돕니다.
+> 켜려면 `room-object-detection/README.md`대로 별도 conda 환경(`roomdet`, transformers 4.49)을 만들고
+> 그 python 경로를 `ROOMDET_PYTHON`에 넣으세요. GPU(RTX 등) 권장.
 
 ---
 

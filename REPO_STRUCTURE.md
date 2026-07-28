@@ -47,13 +47,21 @@ interior/
 │   ├── layout_refine.txt  svg_floorplan.txt   # ← model1
 │   └── rule_based_layout.txt                  # ← mood_pipeline/rule_based_svg
 │
+├── room-object-detection/     # Florence-2 가구 탐지 (별도 환경 — transformers 4.49 고정)
+│   ├── detect.py              # 사진 → 가구 바운딩박스 JSON (--out 지정 가능)
+│   ├── module/                # detector_florence.py, gpu_config.py
+│   └── requirements.txt       # ⚠️ 메인 venv와 충돌 → 별도 conda 환경(roomdet)에서 실행
+│
+├── orchestration/             # 사진 → Florence 탐지 → Gemini 근거주입 → SVG 오케스트레이터
+│   └── run_floorplan.py       # ROOMDET_PYTHON(별도 환경)으로 detect.py를 subprocess 호출
+│
 ├── images/                    # 무드 원본 이미지 (images/final)
 ├── data/                      # 임베딩·클러스터·번역 캐시 (대부분 gitignore)
 ├── output/floorplans/         # 평면도 생성 결과 (gitignore, .gitkeep만)
 │
 ├── requirements.txt           # 통합 의존성 (venv 한 번)
 ├── .env / .env.example        # 공통 환경변수
-├── venv/ venv-linux/          # 가상환경 (gitignore)
+├── venv/                      # 가상환경 (gitignore)
 └── .gitignore
 ```
 
@@ -98,6 +106,8 @@ interior_to_floorplan.py (호환 레이어, re-export)
 | `GEMINI_THINKING_BUDGET` | 공간추론 thinking 예산(토큰) | `4096` |
 | `GEMINI_LAYOUT_REFINE` | layout 자기교정 패스(0=끄기) | `1` |
 | `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | backend 가구 추천(네이버 쇼핑) | — |
+| `ROOMDET_PYTHON` | Florence 탐지용 별도 환경 python 경로(비우면 Florence 끄기) | — |
+| `ROOMDET_REQUIRE_GPU` | 1이면 GPU 없을 때 Florence 자동 skip(CPU 저속 방지) | `1` |
 
 ## 실행 방법
 
@@ -117,9 +127,20 @@ python app.py                  # http://127.0.0.1:5000
 cd interior
 python -m model1.cli --help                 # 평면도 생성 (구: model1/interior_to_floorplan.py도 동작)
 python model2/run_gemini_features.py --help # 무드 특징 추출
+
+# 4) Florence 근거주입 오케스트레이터 (루트에서). ROOMDET_PYTHON 비우면 Florence 없이 Gemini만.
+python orchestration/run_floorplan.py <사진경로>
 ```
+
+> **Florence는 별도 환경이 필요**합니다. `transformers==4.49.0`이 메인 venv(5.x)와 충돌하므로
+> `room-object-detection/README.md`의 conda 환경(`roomdet`)을 따로 만들고, 그 python 경로를
+> `.env`의 `ROOMDET_PYTHON`에 넣으면 오케스트레이터가 subprocess로 호출합니다.
+> GPU(RTX 등) 권장 — CPU로도 되지만 이미지 1장에 수 분 걸립니다.
 
 ## 참고
 
-- `interior/` 하위의 `interior/`(옛 `floorplan-svg`/`mood-search` 사본)는 통합 이전 스냅샷입니다.
-  현재 루트 코드가 모든 면에서 최신이므로 검증 후 제거해도 됩니다.
+- **`room-object-detection`은 메인 venv와 의존성이 충돌**한다(transformers 4.49 vs 5.x).
+  그래서 한 프로세스로 합치지 않고, 오케스트레이터가 별도 환경의 python을 subprocess로 호출한다.
+  두 환경의 접점은 `detection.json` 파일 하나뿐 → 의존성 충돌이 원천 차단된다.
+- Florence 탐지(`room-object-detection`)와 무드 검색(`mood_pipeline/search.py`)은 모두 CLIP/Florence를
+  쓰지만 서로 다른 경로다. 무드 검색은 메인 venv에서, Florence는 별도 환경에서 돈다.

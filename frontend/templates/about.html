@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block title %}AI Interior - About{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 760px;">
+  <section class="my-5">
+    <h1 class="mb-3">AI Interior 소개</h1>
+    <p class="lead text-muted">
+      방 사진 한 장으로 우리집 평면도를 만들고, 원하는 스타일로 인테리어를 완성하는 서비스입니다.
+    </p>
+
+    <hr class="my-4">
+
+    <h5 class="mb-2">이렇게 동작해요</h5>
+    <ol class="text-muted" style="line-height: 2;">
+      <li><strong>사진 업로드</strong> — 방 사진 한 장을 올립니다.</li>
+      <li><strong>AI 공간 분석</strong> — Gemini가 벽·가구·창문 위치를 분석해 2D 평면도를 만듭니다.</li>
+      <li><strong>가구 정리</strong> — 기존 가구를 유지·제거하고, 원하는 위치로 옮겨봅니다.</li>
+      <li><strong>추천 반영</strong> — 무드에 맞는 가구를 추천받아 배치에 반영합니다.</li>
+    </ol>
+
+    <hr class="my-4">
+
+    <h5 class="mb-2">사용 기술</h5>
+    <ul class="text-muted" style="line-height: 2;">
+      <li>Gemini — 사진에서 공간 구조 추출 및 평면도 생성</li>
+      <li>CLIP — 프롬프트로 비슷한 무드의 인테리어 사진 검색</li>
+      <li>규칙 기반 SVG 렌더러 — 평면도를 아이콘으로 그려내기</li>
+    </ul>
+
+    <div class="text-center mt-5">
+      <a href="{{ url_for('start') }}" class="btn btn-lg btn-hero-start">
+        지금 시작하기 →
+      </a>
+    </div>
+  </section>
+</div>
+{% endblock %}
