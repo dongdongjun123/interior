@@ -119,6 +119,64 @@
       rgba(0, 0, 0, 0.12);
     backdrop-filter: blur(10px);
   }
+
+  /* 구매할 가구 종류 선택 (STEP 4에서 옮겨온 UI) */
+  .purchase-picker {
+    padding: 20px;
+    border: 1px solid #e7e3dd;
+    border-radius: 18px;
+    background: #fff;
+  }
+
+  .purchase-grid {
+    display: grid;
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 575px) {
+    .purchase-grid {
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .purchase-option {
+    cursor: pointer;
+  }
+
+  .purchase-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .purchase-option span {
+    min-height: 52px;
+    padding: 0.8rem;
+    border: 1px solid #dedede;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .purchase-option input:checked + span {
+    border-color: #222;
+    background: #222;
+    color: #fff;
+  }
+
+  .purchase-summary {
+    color: #666;
+    font-size: 0.9rem;
+  }
 </style>
 {% endblock %}
 
@@ -143,6 +201,65 @@
       최종 결과 화면에 함께 표시됩니다.
     </p>
   </div>
+
+  <!-- 구매할 가구 종류 선택: 고르면 아래에 추천 상품이 나온다.
+       (STEP 4를 건너뛰므로 이 화면에서 직접 받는다) -->
+  <form
+    method="post"
+    action="{{ url_for('product_selection') }}"
+    class="purchase-picker mb-5"
+  >
+    <div class="mb-3">
+      <h5 class="mb-1">
+        새로 구매할 가구
+      </h5>
+
+      <p class="text-muted small mb-0">
+        필요한 가구 종류를 고르면
+        추천 상품을 보여드려요.
+      </p>
+    </div>
+
+    <div class="purchase-grid">
+      {% for option in purchase_options %}
+        <label class="purchase-option">
+          <input
+            type="checkbox"
+            name="purchase_items"
+            value="{{ option.value }}"
+            {% if option.value in purchase_items %}
+              checked
+            {% endif %}
+          >
+
+          <span>
+            {{ option.label }}
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <div
+      class="
+        d-flex
+        justify-content-between
+        align-items-center
+        mt-3
+      "
+    >
+      <p class="purchase-summary mb-0">
+        구매 선택
+        <strong>{{ purchase_items | length }}</strong>개
+      </p>
+
+      <button
+        type="submit"
+        class="btn btn-outline-dark rounded-pill px-4"
+      >
+        추천 상품 보기
+      </button>
+    </div>
+  </form>
 
   <form
     method="post"
@@ -306,7 +423,7 @@
       "
     >
       <a
-        href="{{ url_for('furniture_choice') }}"
+        href="{{ url_for('floorplan') }}"
         class="
           btn
           btn-outline-dark

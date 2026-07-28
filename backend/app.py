@@ -1388,6 +1388,28 @@ def furniture_choice():
 # ──────────────────────────────────────────────────────
 # STEP 5: 종류별 네이버 쇼핑 상품 추천 및 선택
 # ──────────────────────────────────────────────────────
+def default_furniture_choices():
+    """감지된 가구를 모두 '유지'로 둔 기본 선택값.
+    STEP 4(가구 유지/제거)를 건너뛰어도 결과가 나오게 하기 위한 기본값이며,
+    유지/제거는 result 화면에서 바로 토글할 수 있다."""
+    return [
+        {
+            "id": item.get("id"),
+            "item": item.get("label"),
+            "type": item.get("type"),
+            "source_index": item.get(
+                "source_index"
+            ),
+            "decision": "keep",
+        }
+        for item
+        in session.get(
+            "detected_furniture",
+            [],
+        )
+    ]
+
+
 @app.route(
     "/product-selection",
     methods=["GET", "POST"],
@@ -1402,6 +1424,16 @@ def product_selection():
         return redirect(
             url_for("upload")
         )
+
+    # STEP 4를 건너뛰고 바로 들어온 경우:
+    # 가구는 모두 '유지'로 두고 구매 선택만 이 화면에서 받는다.
+    if (
+        "furniture_choices"
+        not in session
+    ):
+        session[
+            "furniture_choices"
+        ] = default_furniture_choices()
 
     if request.method == "POST":
         furniture_choices = []
@@ -1577,6 +1609,14 @@ def product_selection():
         purchase_items=(
             purchase_items
         ),
+        purchase_options=[
+            {
+                "value": item_type,
+                "label": label,
+            }
+            for item_type, label
+            in PURCHASE_LABELS.items()
+        ],
     )
 
 
