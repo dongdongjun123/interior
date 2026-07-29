@@ -1642,10 +1642,20 @@ def floorplan():
                 or "unknown"
             ).lower()
 
+            # 문·창문은 가구가 아니라 구조물이라 유지/제거 대상이 아니다.
             if item_type in {
                 "door",
                 "window",
             }:
+                continue
+
+            # 평면도에 그려지지 않는 것은 목록에도 넣지 않는다.
+            # unknown(액자·바구니 등)은 심볼이 없어 렌더에서 빠지므로,
+            # 목록에만 남기면 유지/제거를 눌러도 화면이 그대로여서
+            # 사용자가 고장으로 받아들인다.
+            if not rule_based_svg.has_drawable_symbol(
+                item_type
+            ):
                 continue
 
             label = (
@@ -2540,6 +2550,9 @@ def result():
     # 이름은 저장된 값을 그대로 쓰지 않고 표시 시점에 한글로 바꾼다.
     # 번역 규칙이 바뀌거나 예전 세션에 영어 라벨이 남아 있어도
     # 화면에는 항상 한글이 나오게 하기 위함.
+    #
+    # 평면도에 그려지지 않는 항목(unknown 등)은 목록에서도 뺀다.
+    # 예전 세션에 이미 저장돼 있어도 화면에는 나오지 않게 한다.
     furniture_choices = [
         {
             **choice,
@@ -2554,6 +2567,9 @@ def result():
                 "furniture_choices",
                 [],
             )
+        )
+        if rule_based_svg.has_drawable_symbol(
+            str(choice.get("type") or "unknown").lower()
         )
     ]
 
