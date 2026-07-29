@@ -75,6 +75,7 @@
         planBox.innerHTML = data.svg_markup;
         if (window.initFloorplanDrag) window.initFloorplanDrag();
         if (window.initFloorplanTooltip) window.initFloorplanTooltip();
+        if (window.initFloorplanRotate) window.initFloorplanRotate();
       }
       btn.className = "btn btn-sm btn-success mt-auto add-btn";
       btn.textContent = "추가됨 ✓";

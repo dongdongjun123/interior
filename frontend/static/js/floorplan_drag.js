@@ -1,7 +1,9 @@
 // 평면도 가구 드래그 이동 (화면상 이동만, 저장 없음)
 //
 // 인라인 SVG 안의 [data-draggable] 가구 <g>를 마우스/터치로 잡아 옮긴다.
-// 이동은 <g>에 transform="translate(dx,dy)"로만 적용 → 원본 SVG 좌표는 건드리지 않는다.
+// 이동은 <g>의 transform으로만 적용 → 원본 SVG 좌표는 건드리지 않는다.
+// transform은 회전(floorplan_rotate.js)과 공유하므로 직접 쓰지 않고
+// FloorplanTransform 헬퍼를 통해 쓴다. 직접 setAttribute하면 회전이 지워진다.
 // result 화면은 토글·상품추가로 SVG가 교체되므로, 교체 후 window.initFloorplanDrag()로 재초기화한다.
 (function () {
   function svgScale(svg) {
@@ -11,11 +13,16 @@
     return { x: vb.width / rect.width, y: vb.height / rect.height };
   }
 
+  // 공용 헬퍼가 있으면 그걸 쓰고, 없으면 이동만 하는 예전 방식으로 떨어진다.
+  const T = window.FloorplanTransform;
+
   function getTranslate(g) {
+    if (T) return T.getTranslate(g);
     return { x: parseFloat(g.getAttribute("data-tx")) || 0,
              y: parseFloat(g.getAttribute("data-ty")) || 0 };
   }
   function setTranslate(g, x, y) {
+    if (T) return T.setTranslate(g, x, y);
     g.setAttribute("data-tx", x);
     g.setAttribute("data-ty", y);
     g.setAttribute("transform", `translate(${x} ${y})`);

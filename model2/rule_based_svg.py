@@ -1583,6 +1583,15 @@ def draw_obj(
     )
     data_attrs += f' data-area-pct="{area_pct:.1f}"'
 
+    # 회전축(가구 중심). JS가 rotate(deg cx cy)에 그대로 쓴다.
+    # getBBox로 구하면 회전할수록 값이 변해 누적 오차가 생기므로
+    # 렌더 시점의 원본 중심을 넘긴다.
+    center_x = float(obj["x"]) + float(obj["w"]) / 2
+    center_y = float(obj["y"]) + float(obj["h"]) / 2
+    data_attrs += (
+        f' data-cx="{center_x:.1f}" data-cy="{center_y:.1f}"'
+    )
+
     if obj.get("product_title"):
         data_attrs += (
             f' data-product-title='
