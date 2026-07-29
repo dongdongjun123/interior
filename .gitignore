@@ -29,6 +29,11 @@ frontend/static/generated/*
 !frontend/static/uploads/.gitkeep
 !frontend/static/generated/.gitkeep
 
+# 무드 원본 데이터셋 — 이미 커밋된 스냅샷 고정.
+# 로컬에서 사진을 추가/삭제해도 git이 자동으로 추적하지 않는다
+# (기존에 커밋된 파일은 별도 git rm/add 전까진 그대로 유지됨).
+images/final/*
+
 # YOLO 가중치 (최초 실행 시 자동 다운로드)
 *.pt
 
