@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 
 import numpy as np
 
@@ -25,18 +26,24 @@ from .preprocess import collect_image_paths
 # CLIP 모델·프로세서는 무거우므로 최초 1회만 로드해 캐싱
 _CLIP_MODEL = None
 _CLIP_PROCESSOR = None
+_CLIP_LOCK = threading.Lock()
 
 
 def _get_clip():
     # CLIP 모델·프로세서를 지연 로딩 (첫 호출 시 다운로드/로드, 이후 캐시 재사용)
+    # Flask 개발 서버는 요청을 스레드로 동시 처리할 수 있어, 락 없이 첫 호출이
+    # 겹치면 transformers의 지연 임포트가 깨진 상태로 관측되는 레이스가 있었다.
     global _CLIP_MODEL, _CLIP_PROCESSOR
     if _CLIP_MODEL is None:
-        import torch  # noqa: F401  (transformers가 내부적으로 사용)
-        from transformers import CLIPModel, CLIPProcessor
+        with _CLIP_LOCK:
+            if _CLIP_MODEL is None:
+                import torch  # noqa: F401  (transformers가 내부적으로 사용)
+                from transformers import CLIPModel, CLIPProcessor
 
-        _CLIP_MODEL = CLIPModel.from_pretrained(CLIP_MODEL_ID)
-        _CLIP_MODEL.eval()  # 추론 모드
-        _CLIP_PROCESSOR = CLIPProcessor.from_pretrained(CLIP_MODEL_ID)
+                model = CLIPModel.from_pretrained(CLIP_MODEL_ID)
+                model.eval()  # 추론 모드
+                processor = CLIPProcessor.from_pretrained(CLIP_MODEL_ID)
+                _CLIP_MODEL, _CLIP_PROCESSOR = model, processor
     return _CLIP_MODEL, _CLIP_PROCESSOR
 
 
@@ -160,19 +167,22 @@ def build_image_index(force: bool = False) -> dict:
 # 인덱스는 프로세스 내에서 한 번만 메모리에 로드
 _INDEX_EMB = None
 _INDEX_PATHS = None
+_INDEX_LOCK = threading.Lock()
 
 
 def _load_index():
     # 캐시된 이미지 임베딩·경로를 메모리로 로드 (최초 1회)
     global _INDEX_EMB, _INDEX_PATHS
     if _INDEX_EMB is None:
-        # 인덱스 캐시가 없으면 자동으로 빌드한다(첫 검색 시 1회, images/final 전체 임베딩 — 수 분).
-        # clone 직후처럼 캐시가 없어도 무드 검색이 동작하게 하기 위함. 한 번 만들면 파일로 캐시됨.
-        if not CLIP_IMAGE_EMBEDDINGS_PATH.exists():
-            print("[search] 이미지 인덱스 캐시 없음 → 자동 빌드 시작(최초 1회, 수 분 소요)…")
-            build_image_index()
-        _INDEX_EMB = np.load(CLIP_IMAGE_EMBEDDINGS_PATH)
-        _INDEX_PATHS = json.loads(CLIP_IMAGE_PATHS_PATH.read_text(encoding="utf-8"))
+        with _INDEX_LOCK:
+            if _INDEX_EMB is None:
+                # 인덱스 캐시가 없으면 자동으로 빌드한다(첫 검색 시 1회, images/final 전체 임베딩 — 수 분).
+                # clone 직후처럼 캐시가 없어도 무드 검색이 동작하게 하기 위함. 한 번 만들면 파일로 캐시됨.
+                if not CLIP_IMAGE_EMBEDDINGS_PATH.exists():
+                    print("[search] 이미지 인덱스 캐시 없음 → 자동 빌드 시작(최초 1회, 수 분 소요)…")
+                    build_image_index()
+                _INDEX_EMB = np.load(CLIP_IMAGE_EMBEDDINGS_PATH)
+                _INDEX_PATHS = json.loads(CLIP_IMAGE_PATHS_PATH.read_text(encoding="utf-8"))
     return _INDEX_EMB, _INDEX_PATHS
 
 
