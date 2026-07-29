@@ -369,6 +369,7 @@ def run_rule_based_svg_step(
     *,
     skip_existing: bool = True,
     title: str | None = None,
+    mood: str | None = None,
 ) -> dict:
     # 파이썬 규칙 기반 렌더러로 SVG 생성
     # Gemini API 호출은 없음
@@ -444,6 +445,7 @@ def run_rule_based_svg_step(
         layout,
         paths["rule_svg"],
         title=svg_title,
+        mood=mood,
     )
 
     print(
@@ -880,6 +882,8 @@ def generate_floorplan_for_web(
         skip_existing=(
             svg_skip_existing
         ),
+        # 무드가 오면 평면도 색을 그 무드로 렌더한다.
+        mood=mood,
     )
 
     paths = _output_paths(

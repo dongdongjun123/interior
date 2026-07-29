@@ -184,6 +184,24 @@ MIN_FURNITURE_MM = 150
 MAX_FURNITURE_MM = 4000
 
 
+def current_mood():
+    """평면도 색을 정할 무드 문자열을 세션에서 꺼낸다.
+
+    사용자가 입력한 문장(mood_prompt)과 스타일 태그를 합쳐 넘긴다.
+    렌더러가 슬러그·키워드 어느 쪽이든 알아본다. 없으면 None(기본 모노톤).
+    """
+    parts = [
+        str(session.get("mood_prompt") or "").strip(),
+    ]
+
+    tags = session.get("style_tags") or []
+    if isinstance(tags, (list, tuple)):
+        parts.extend(str(t) for t in tags)
+
+    text = " ".join(p for p in parts if p).strip()
+    return text or None
+
+
 def _mm_pair_ok(a, b):
     return (
         MIN_FURNITURE_MM <= a <= MAX_FURNITURE_MM
@@ -1586,6 +1604,8 @@ def floorplan():
                 skip_existing=True,
                 room_width=room_width,
                 room_depth=room_depth,
+                # 무드에 맞춰 평면도 색을 렌더한다.
+                mood=current_mood(),
             )
         )
 
@@ -2070,6 +2090,8 @@ def create_modified_floorplan(
             title=(
                 "추천 가구가 반영된 평면도"
             ),
+            # 무드에 맞춰 색을 바꾼다(형태·배치는 그대로).
+            mood=current_mood(),
         )
 
         session[

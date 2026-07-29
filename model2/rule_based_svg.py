@@ -37,7 +37,8 @@ CANVAS_H = ROOM_H + MARGIN_Y * 2 + 120
 GRID = 50
 GRID_SNAP = 20  # 가구 정렬 격자(px)
 
-# 모노톤 팔레트 — 색으로 구분하지 않고 선/톤 차이로만 읽히게 한다.
+# 모노톤 팔레트(기본) — 색으로 구분하지 않고 선/톤 차이로만 읽히게 한다.
+# 무드가 지정되면 apply_mood()가 이 값을 그 무드 팔레트로 바꾼다.
 STYLE = {
     "wall": "#141414",
     "line": "#3f3f3f",
@@ -58,7 +59,214 @@ STYLE = {
     "iso_top": "#f2f2f2",
     "iso_left": "#d8d8d8",
     "iso_right": "#c2c2c2",
+    # 도면 바깥 여백과 카드 배경. 다크 무드에서 흰 카드면 도면이 안 보인다.
+    "page_bg": "#f7f3ee",
+    "card_bg": "#ffffff",
 }
+
+BASE_STYLE = dict(STYLE)
+
+# ──────────────────────────────────────────────────────
+# 무드별 색상
+#
+# 형태·배치는 그대로 두고 색만 바꾼다. 무드 12종을 4개 팔레트로 묶었다
+# (12종 각각 다른 색을 주면 서로 구분이 안 될 만큼 미세해진다).
+#
+# 가구 심볼(Freepik)은 파일에 fill이 박혀 있어 STYLE만 바꾸면 청회색으로
+# 남는다. symbol_colors로 그 5색을 함께 치환한다 — 안 하면 "따뜻한
+# 무드인데 가구는 차가운 파랑"이 된다.
+# ──────────────────────────────────────────────────────
+
+# 심볼 파일에 박혀 있는 원본 색 (진한 -> 연한 순)
+SYMBOL_BASE_COLORS = [
+    "#8aa6b3",   # 테두리
+    "#b5d1db",   # 본체
+    "#bfd6de",   # 본체(변형)
+    "#deebf2",   # 내부
+    "#ffffff",   # 하이라이트
+]
+
+MOOD_PALETTES = {
+    # 우드·베이지 계열 — 따뜻하고 아늑한 무드
+    "warm": {
+        "style": {
+            "wall": "#3b2b20",
+            "line": "#6b5241",
+            "thin": "#b09880",
+            "grid": "#f2e9df",
+            "floor": "#fffdfa",
+            "glass": "#f5ece2",
+            "text": "#2e2118",
+            "muted": "#8a7360",
+            "rug": "#c9a882",
+            "accent": "#8a5a3b",
+            "accent_soft": "#f3e3d7",
+            "existing": "#f8f2ea",
+            "recommend": "#fff1e2",
+            "iso_top": "#f6ece1",
+            "iso_left": "#e2cdb6",
+            "iso_right": "#d0b697",
+            "page_bg": "#f7f1e8",
+            "card_bg": "#fffdf9",
+        },
+        "symbol_colors": [
+            "#a8825f",
+            "#dcc3a5",
+            "#e3cdb2",
+            "#f3e7d8",
+            "#fffdf8",
+        ],
+    },
+    # 지금과 가장 가까운 청회색 — 밝고 시원한 무드
+    "cool": {
+        "style": {
+            "wall": "#1e2a35",
+            "line": "#4a5c6b",
+            "thin": "#93a1ae",
+            "grid": "#eaf0f4",
+            "floor": "#fdfeff",
+            "glass": "#e6f1f7",
+            "text": "#16202a",
+            "muted": "#6b7885",
+            "rug": "#a9c0cc",
+            "accent": "#2f6f9e",
+            "accent_soft": "#e2eef7",
+            "existing": "#f2f6f9",
+            "recommend": "#e8f2fa",
+            "iso_top": "#f0f5f8",
+            "iso_left": "#cfdde5",
+            "iso_right": "#b8ccd7",
+            "page_bg": "#eef2f5",
+            "card_bg": "#ffffff",
+        },
+        # 원본 심볼이 이미 이 계열이라 그대로 둔다.
+        "symbol_colors": None,
+    },
+    # 무채색 — 미니멀·모던
+    "neutral": {
+        "style": dict(STYLE),  # 기본 모노톤이 그대로 이 무드다
+        "symbol_colors": [
+            "#8f8f8f",
+            "#c8c8c8",
+            "#d0d0d0",
+            "#e9e9e9",
+            "#ffffff",
+        ],
+    },
+    # 어두운 배경 — 무디·럭셔리
+    "dark": {
+        "style": {
+            "wall": "#e8eaed",
+            "line": "#9aa3ad",
+            "thin": "#6b747e",
+            "grid": "#2c3238",
+            "floor": "#23282e",
+            "glass": "#33414c",
+            "text": "#f2f4f6",
+            "muted": "#a3acb6",
+            "rug": "#6d5f4c",
+            "accent": "#e0a271",
+            "accent_soft": "#3d3227",
+            "existing": "#2b3036",
+            "recommend": "#3d3227",
+            "iso_top": "#4a525b",
+            "iso_left": "#3a4149",
+            "iso_right": "#2f353c",
+            "page_bg": "#15181c",
+            "card_bg": "#1e2227",
+        },
+        "symbol_colors": [
+            "#7d8b96",
+            "#55636e",
+            "#5b6a75",
+            "#414d57",
+            "#8fa0ac",
+        ],
+    },
+}
+
+# 무드 슬러그(shared.config의 SLUG_MAP 값) -> 팔레트
+MOOD_TO_PALETTE = {
+    "natural_wood": "warm",
+    "warm_cozy": "warm",
+    "soft_beige": "warm",
+    "vintage_retro": "warm",
+    "cute_pastel": "warm",
+    "bright_airy": "cool",
+    "minimal_white": "cool",
+    "plant_green": "cool",
+    "modern_grey": "neutral",
+    "monochrome_minimal": "neutral",
+    "luxury_modern": "dark",
+    "dark_moody": "dark",
+}
+
+# 한글/영문 자유 입력에서 무드를 추정할 때 쓰는 키워드.
+# 사용자가 슬러그를 직접 주지 않고 "따뜻한 우드 톤"처럼 쓸 때를 위함.
+MOOD_KEYWORDS = [
+    ("warm", ("따뜻", "우드", "원목", "아늑", "베이지", "wood",
+              "warm", "cozy", "beige", "vintage", "레트로", "파스텔")),
+    ("dark", ("어두", "다크", "무디", "럭셔리", "dark", "moody",
+              "luxury", "블랙", "black")),
+    ("neutral", ("모노", "무채", "미니멀", "그레이", "회색",
+                 "mono", "minimal", "grey", "gray")),
+    ("cool", ("시원", "밝", "화이트", "청", "그린", "식물",
+              "bright", "white", "airy", "green", "plant")),
+]
+
+_ACTIVE_MOOD: str | None = None
+
+
+def resolve_palette(mood: str | None) -> str | None:
+    """무드 슬러그나 자유 문장에서 팔레트 이름을 고른다.
+
+    못 알아보면 None(기본 모노톤 유지).
+    """
+    if not mood:
+        return None
+
+    text = str(mood).strip().lower()
+    if not text:
+        return None
+
+    # 1) 슬러그 정확히 일치
+    if text in MOOD_TO_PALETTE:
+        return MOOD_TO_PALETTE[text]
+
+    # 2) 팔레트 이름을 직접 준 경우
+    if text in MOOD_PALETTES:
+        return text
+
+    # 3) 자유 문장에서 키워드 추정
+    for name, words in MOOD_KEYWORDS:
+        if any(word in text for word in words):
+            return name
+
+    return None
+
+
+def apply_mood(mood: str | None) -> str | None:
+    """STYLE을 무드 팔레트로 바꾼다. 반환값은 적용된 팔레트 이름(또는 None).
+
+    심볼 색 치환은 load_symbols()가 _ACTIVE_MOOD를 보고 처리한다.
+    """
+    global _ACTIVE_MOOD
+
+    palette_name = resolve_palette(mood)
+
+    # 기본(모노톤)으로 되돌린 뒤 필요한 값만 덮어쓴다.
+    # 이전 무드의 색이 남지 않게 하려면 매번 초기화해야 한다.
+    STYLE.clear()
+    STYLE.update(BASE_STYLE)
+
+    if palette_name:
+        STYLE.update(
+            MOOD_PALETTES[palette_name]["style"]
+        )
+
+    _ACTIVE_MOOD = palette_name
+    return palette_name
+
 
 FONT_FAMILY = "Pretendard, Noto Sans KR, Arial, sans-serif"
 
@@ -1285,7 +1493,8 @@ SYMBOL_FOR_TYPE = {
 # 침대는 제외 — 머리 방향이 뒤집혀 오히려 어색해진다(비율 유지로 처리).
 ROTATABLE = {"desk", "cabinet", "shelf", "rug", "mirror"}
 
-_SYMBOL_CACHE: dict[str, tuple[str, float, float]] | None = None
+# 무드별 심볼 캐시: {팔레트이름: {심볼이름: (본문, vw, vh)}}
+_SYMBOL_CACHE: dict[str, dict[str, tuple[str, float, float]]] | None = None
 
 
 def _parse_symbol(text: str) -> tuple[str, float, float]:
@@ -1302,21 +1511,67 @@ def _parse_symbol(text: str) -> tuple[str, float, float]:
     return inner, vw, vh
 
 
+def _recolor_symbol(body: str, palette_name: str | None) -> str:
+    """심볼에 박힌 fill 색을 무드 팔레트 색으로 바꾼다.
+
+    심볼 파일은 Freepik 원본이라 색이 하드코딩돼 있다. 치환하지 않으면
+    방·격자만 무드 색으로 바뀌고 가구는 청회색으로 남는다.
+    """
+    if not palette_name:
+        return body
+
+    target = MOOD_PALETTES[palette_name].get("symbol_colors")
+    if not target:
+        return body
+
+    mapping = {
+        base.lower(): new
+        for base, new in zip(SYMBOL_BASE_COLORS, target)
+    }
+
+    def sub(match: re.Match[str]) -> str:
+        return mapping.get(match.group(0).lower(), match.group(0))
+
+    pattern = re.compile(
+        "|".join(re.escape(c) for c in mapping),
+        re.I,
+    )
+    return pattern.sub(sub, body)
+
+
 def load_symbols() -> dict[str, tuple[str, float, float]]:
-    """심볼 파일을 한 번만 읽어 캐시한다."""
+    """심볼 파일을 읽어 캐시한다.
+
+    캐시 키에 무드를 넣는다. 무드마다 색이 다르므로 하나의 캐시를 쓰면
+    먼저 렌더한 무드의 색이 다음 무드에 그대로 남는다.
+    """
     global _SYMBOL_CACHE
+
     if _SYMBOL_CACHE is None:
-        cache: dict[str, tuple[str, float, float]] = {}
-        if SYMBOL_DIR.is_dir():
-            for path in sorted(SYMBOL_DIR.glob("*.svg")):
-                try:
-                    cache[path.stem] = _parse_symbol(
-                        path.read_text(encoding="utf-8")
-                    )
-                except OSError:
-                    continue
-        _SYMBOL_CACHE = cache
-    return _SYMBOL_CACHE
+        _SYMBOL_CACHE = {}
+
+    key = _ACTIVE_MOOD or "_base"
+    cached = _SYMBOL_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    cache: dict[str, tuple[str, float, float]] = {}
+    if SYMBOL_DIR.is_dir():
+        for path in sorted(SYMBOL_DIR.glob("*.svg")):
+            try:
+                body, vw, vh = _parse_symbol(
+                    path.read_text(encoding="utf-8")
+                )
+            except OSError:
+                continue
+            cache[path.stem] = (
+                _recolor_symbol(body, _ACTIVE_MOOD),
+                vw,
+                vh,
+            )
+
+    _SYMBOL_CACHE[key] = cache
+    return cache
 
 
 def symbol_defs(objects: list[PlacedObject]) -> str:
@@ -1735,7 +1990,14 @@ def fit_walls(objs: list[PlacedObject], edge: int = 40, pad: int = 12) -> list[P
 def render_svg(
     layout: LayoutDict,
     title: str = "AI 인테리어 평면도",
+    mood: str | None = None,
 ) -> str:
+    """layout JSON을 평면도 SVG로 렌더한다.
+
+    mood: 무드 슬러그("warm_cozy")나 자유 문장("따뜻한 우드 톤").
+        주면 색을 그 무드 팔레트로 바꾼다(형태·배치는 그대로).
+        layout의 room.mood_slug가 있으면 그것도 본다.
+    """
     layout = coerce_layout_v3(
         layout
     )
@@ -1743,6 +2005,14 @@ def render_svg(
     room_data = (
         layout.get("room")
         or {}
+    )
+
+    # 색을 먼저 정한다. 이후 room()·grid()·심볼이 STYLE을 읽기 때문에
+    # 렌더가 시작되기 전에 적용해야 한다.
+    apply_mood(
+        mood
+        or room_data.get("mood_slug")
+        or room_data.get("mood")
     )
 
     _set_canvas(
@@ -1969,7 +2239,7 @@ def render_svg(
         f'<rect '
         f'width="100%" '
         f'height="100%" '
-        f'fill="#f7f3ee"/>'
+        f'fill="{STYLE["page_bg"]}"/>'
 
         f'<rect '
         f'x="24" '
@@ -1977,7 +2247,7 @@ def render_svg(
         f'width="{CANVAS_W - 48}" '
         f'height="{CANVAS_H - 40}" '
         f'rx="24" '
-        f'fill="#ffffff"/>'
+        f'fill="{STYLE["card_bg"]}"/>'
 
         f'<text '
         f'x="42" '
@@ -2014,6 +2284,7 @@ def save_svg(
     layout: LayoutDict,
     path: str | Path,
     title: str = "AI 인테리어 평면도",
+    mood: str | None = None,
 ) -> Path:
     output_path = Path(
         path
@@ -2027,6 +2298,7 @@ def save_svg(
     svg_text = render_svg(
         layout,
         title=title,
+        mood=mood,
     )
 
     output_path.write_text(
