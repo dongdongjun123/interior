@@ -813,6 +813,7 @@ def generate_floorplan_for_web(
     room_width: float | None = None,
     room_depth: float | None = None,
     detection_evidence: str | None = None,
+    mood: str | None = None,
 ) -> dict:
     """
     웹용 고수준 헬퍼:
