@@ -884,17 +884,31 @@ def postprocess_layout_objects(objects: list[dict[str, Any]]) -> list[dict[str, 
             else:
                 x_value, y_value = cx, clamp(gy, 0.12, 0.88)
 
-            # 창 길이는 벽 방향에 따라 다른 축에 들어온다.
-            # 수평 벽(top/bottom)은 w가 길이, 세로 벽(left/right)은 h가 길이.
+            # 창 길이를 고른다.
+            #
+            # 벽 방향에 맞는 축(수평 벽은 w, 세로 벽은 h)이 원칙이지만,
+            # Gemini는 벽 방향과 무관하게 w를 길이로 쓰는 경우가 많다
+            # (실측: 세로 벽 창문 4개 중 3개가 w=0.4 h=0.03로 왔다).
+            # 규칙대로 h만 보면 0.03을 길이로 읽어 버리고 기본값으로
+            # 떨어져, 실제로 넓은 창이 매번 같은 크기로 그려졌다.
+            # 그래서 두 축 중 "긴 쪽"을 길이로 본다 — 창은 길이가 두께보다
+            # 항상 크므로 이 해석이 축 표기 실수에 강하다.
+            try:
+                gw2 = float(obj.get("w") or 0.0)
+            except (TypeError, ValueError):
+                gw2 = 0.0
+            try:
+                gh2 = float(obj.get("h") or 0.0)
+            except (TypeError, ValueError):
+                gh2 = 0.0
+
+            span = max(gw2, gh2)
+            # 벽 길이의 15~70%만 받는다(이상값 방어).
+            span = clamp(span, 0.15, 0.70) if span > 0.05 else 0.35
+
             length_key = (
                 "w" if wall in ("top", "bottom") else "h"
             )
-            try:
-                span = float(obj.get(length_key) or 0.0)
-            except (TypeError, ValueError):
-                span = 0.0
-            # 벽 길이의 15~70%만 받는다(두께를 길이로 오인하는 값 방어).
-            span = clamp(span, 0.15, 0.70) if span > 0.05 else 0.35
 
             windows_by_wall[wall] = {
                 **obj,
