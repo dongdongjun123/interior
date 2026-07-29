@@ -29,12 +29,6 @@ frontend/static/generated/*
 !frontend/static/uploads/.gitkeep
 !frontend/static/generated/.gitkeep
 
-# 무드 원본 데이터셋 (52MB, 394장) — 대표 샘플 3장만 커밋
-images/final/*
-!images/final/003e0ad2bc74.jpg
-!images/final/017ccbeb4150.jpg
-!images/final/01a3a801d075.JPG
-
 # YOLO 가중치 (최초 실행 시 자동 다운로드)
 *.pt
 
