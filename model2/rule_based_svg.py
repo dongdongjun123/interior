@@ -739,11 +739,22 @@ def _contained_frac(a: dict[str, Any], b: dict[str, Any]) -> float:
 
 
 def merge_subparts(objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """책상 서랍 등 '부분품'을 모품(desk/table)에 흡수(제거).
-    - 라벨에 drawer/drawers가 있고 surface에 걸치면 제거
-    - cabinet/shelf/unknown이 surface에 60% 이상 포함되면 제거(책상 위/밑 부속)."""
+    """다른 가구 위/안에 얹힌 것을 흡수(제거)한다.
+
+    평면도는 바닥 면적을 보여주는 그림이라, 테이블 위 조명이나 선반 위
+    소품은 자기 바닥이 없다. Gemini는 그런 물건에 받침 가구와 똑같은
+    좌표를 주는 일이 많아(실측: 선반+조명 100% 겹침), 그대로 두면
+    겹침 해소가 둘을 억지로 떼어놓아 배치가 흐트러진다.
+
+    - 라벨에 drawer가 있고 surface에 걸치면 제거(서랍은 몸통의 일부)
+    - cabinet/shelf/unknown이 surface에 60% 이상 들어가면 제거
+    - lamp/plant가 받침(테이블·선반·수납장 등)에 70% 이상 들어가면 제거
+    """
     surfaces = [o for o in objects if norm_type(o.get("type")) in _SURFACE_TYPES]
-    if not surfaces:
+    # 조명·화분이 얹힐 수 있는 받침은 책상류보다 넓다(선반·수납장 포함).
+    holders = [o for o in objects if norm_type(o.get("type")) in _ACC_SURFACES]
+
+    if not surfaces and not holders:
         return objects
 
     kept: list[dict[str, Any]] = []
@@ -758,6 +769,12 @@ def merge_subparts(objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
             drop = any(_contained_frac(o, s) > 0.35 for s in surfaces)
         if not drop and t in ("cabinet", "shelf", "unknown"):
             drop = any(_contained_frac(o, s) > 0.6 for s in surfaces)
+        if not drop and t in _ACCESSORY:
+            # 자기 자신은 비교 대상에서 뺀다(같은 객체끼리 100%가 되므로).
+            drop = any(
+                h is not o and _contained_frac(o, h) > 0.7
+                for h in holders
+            )
         if not drop:
             kept.append(o)
     return kept
@@ -998,31 +1015,40 @@ def normalize_objects(
             else zone_y
         )
 
-        center_x = (
-            clamp(
-                x_normalized,
-                0.02,
-                0.98,
-            )
-            * ROOM_W
-            + MARGIN_X
-        )
-
-        center_y = (
-            clamp(
-                y_normalized,
-                0.02,
-                0.98,
-            )
-            * ROOM_H
-            + MARGIN_Y
-        )
-
         width, height = _gemini_size(
             obj,
             std_w,
             std_h,
         )
+
+        # 중심을 방 안으로 자를 때 가구 크기를 함께 본다.
+        # 전에는 중심만 0.02~0.98로 잘라서, 폭이 큰 가구는 중심이
+        # 방 안이어도 절반이 벽을 뚫고 나갔다.
+        # 벽 고정 요소(창·문)는 wall_attach가 따로 붙이므로 제외한다.
+        if object_type in ("window", "door"):
+            center_x = (
+                clamp(x_normalized, 0.02, 0.98)
+                * ROOM_W
+                + MARGIN_X
+            )
+            center_y = (
+                clamp(y_normalized, 0.02, 0.98)
+                * ROOM_H
+                + MARGIN_Y
+            )
+        else:
+            half_w = width / 2
+            half_h = height / 2
+            center_x = clamp(
+                x_normalized * ROOM_W + MARGIN_X,
+                MARGIN_X + half_w,
+                MARGIN_X + ROOM_W - half_w,
+            )
+            center_y = clamp(
+                y_normalized * ROOM_H + MARGIN_Y,
+                MARGIN_Y + half_h,
+                MARGIN_Y + ROOM_H - half_h,
+            )
 
         objs.append(
             {
