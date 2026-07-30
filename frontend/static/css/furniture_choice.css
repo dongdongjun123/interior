@@ -51,6 +51,11 @@
   border-color: #222;
 }
 
+.furniture-choice-card.is-replace {
+  border-color: #0d6efd;
+  background: #f5f9ff;
+}
+
 .furniture-info {
   display: flex;
   align-items: center;

@@ -30,7 +30,9 @@ def _retry_seconds_from_error(exc: Exception, attempt: int) -> float:
     status = getattr(exc, "status_code", None) or getattr(exc, "code", None)  # 상태 코드 추출
     if status == 503 or "503" in msg or "UNAVAILABLE" in msg:  # 서버 과부하(503)면
         return min(10.0 * (2 ** (attempt - 1)), 60.0)  # 지수 백오프(최대 60초)
-    return 35.0  # 그 외(429 등)는 기본 35초 대기
+    # RPM 한도는 보통 1분 단위로 회복된다. 같은 간격으로 연속 호출하지
+    # 않도록 429 재시도 간격을 점차 늘린다.
+    return min(30.0 * (2 ** (attempt - 1)), 120.0)
 
 
 def _is_retryable_gemini_error(exc: Exception) -> bool:
@@ -70,7 +72,7 @@ def _call_gemini_with_retry(label: str, fn):
             if status == 503 or "UNAVAILABLE" in str(exc):  # 503이면 일시 장애 안내
                 raise RuntimeError(
                     f"Gemini API 일시 장애(503). 수요가 몰려 응답하지 못했습니다. "
-                    f"1~2분 후 셀만 다시 실행해 보세요. ({exc})"
+                    f"1~2분 후 다시 시도해 주세요. ({exc})"
                 ) from exc
             raise RuntimeError(  # 그 외(429 등)는 할당량 안내
                 "Gemini API 할당량/요금 한도 초과(429). "

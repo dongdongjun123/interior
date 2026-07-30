@@ -15,6 +15,37 @@
     margin-bottom: 56px;
   }
 
+  .replacement-context {
+    padding: 20px;
+    border: 1px solid #e7e3dd;
+    border-radius: 18px;
+    background: #fff;
+  }
+
+  .replacement-plan {
+    min-height: 280px;
+    max-height: 480px;
+    padding: 12px;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #f7f4ef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .replacement-plan svg {
+    width: 100%;
+    max-height: 450px;
+    height: auto;
+  }
+
+  .replacement-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   .product-card {
     position: relative;
     height: 100%;
@@ -177,6 +208,26 @@
     color: #666;
     font-size: 0.9rem;
   }
+
+  .price-filter-box {
+    margin-top: 1rem;
+    padding: 16px;
+    border: 1px solid #e7e3dd;
+    border-radius: 14px;
+    background: #faf8f5;
+  }
+
+  .price-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 220px));
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 575px) {
+    .price-filter-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 {% endblock %}
 
@@ -200,7 +251,53 @@
       선택한 상품은 수정 평면도와
       최종 결과 화면에 함께 표시됩니다.
     </p>
+
+    {% if product_groups %}
+      <a
+        class="btn btn-outline-secondary btn-sm mt-3"
+        href="{{ url_for('product_selection', refresh=1) }}"
+      >
+        다른 추천 다시 보기
+      </a>
+    {% endif %}
   </div>
+
+  {% if replacement_choices %}
+    <section class="replacement-context mb-5">
+      <div class="row g-4 align-items-center">
+        {% if original_svg_markup %}
+          <div class="col-12 col-lg-7">
+            <div class="replacement-plan">
+              {{ original_svg_markup | safe }}
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="col-12 {{ 'col-lg-5' if original_svg_markup else '' }}">
+          <p class="text-muted small mb-2">
+            변경할 기존 가구
+          </p>
+
+          <h4 class="mb-3">
+            선택한 가구를 대체할 상품을 골라주세요
+          </h4>
+
+          <div class="replacement-list">
+            {% for choice in replacement_choices %}
+              <span class="badge rounded-pill text-bg-primary px-3 py-2">
+                {{ choice.item }}
+              </span>
+            {% endfor %}
+          </div>
+
+          <p class="text-muted small mt-3 mb-0">
+            변경 대상으로 고른 가구는 결과 평면도에서 제거되고,
+            선택한 새 상품이 기존 위치를 기준으로 배치됩니다.
+          </p>
+        </div>
+      </div>
+    </section>
+  {% endif %}
 
   <!-- 구매할 가구 종류 선택: 고르면 아래에 추천 상품이 나온다.
        (STEP 4를 건너뛰므로 이 화면에서 직접 받는다) -->
@@ -237,6 +334,65 @@
           </span>
         </label>
       {% endfor %}
+    </div>
+
+    <div class="price-filter-box">
+      <h6 class="mb-1">가구 가격 범위</h6>
+      <p class="text-muted small mb-3">
+        비워두면 가격 제한 없이 추천합니다.
+        최대 가격만 입력해도 사용할 수 있어요.
+      </p>
+
+      <div class="price-filter-grid">
+        <label>
+          <span class="form-label small">최소 가격</span>
+          <div class="input-group">
+            <input
+              type="text"
+              class="form-control"
+              name="price_min"
+              value="{{ price_min if price_min is not none else '' }}"
+              inputmode="numeric"
+              pattern="[0-9,]*"
+              placeholder="예: 50000"
+              aria-label="최소 가격"
+            >
+            <span class="input-group-text">원</span>
+          </div>
+        </label>
+
+        <label>
+          <span class="form-label small">최대 가격</span>
+          <div class="input-group">
+            <input
+              type="text"
+              class="form-control"
+              name="price_max"
+              value="{{ price_max if price_max is not none else '' }}"
+              inputmode="numeric"
+              pattern="[0-9,]*"
+              placeholder="예: 500000"
+              aria-label="최대 가격"
+            >
+            <span class="input-group-text">원</span>
+          </div>
+        </label>
+      </div>
+
+      {% if price_filter_active %}
+        <p class="small mt-3 mb-0">
+          현재 조건:
+          {% if price_min is not none %}
+            {{ "{:,}".format(price_min) }}원 이상
+          {% endif %}
+          {% if price_min is not none and price_max is not none %}
+            ·
+          {% endif %}
+          {% if price_max is not none %}
+            {{ "{:,}".format(price_max) }}원 이하
+          {% endif %}
+        </p>
+      {% endif %}
     </div>
 
     <div
@@ -388,12 +544,24 @@
         {% else %}
           <div class="empty-product-box">
             <p class="fw-semibold mb-2">
-              추천 상품을 불러오지 못했어요.
+              {% if group.error %}
+                추천 상품을 불러오지 못했어요.
+              {% else %}
+                조건에 맞는 상품을 찾지 못했어요.
+              {% endif %}
             </p>
 
             <p class="text-muted small mb-0">
-              네이버 API 키와 검색 결과를
-              확인해 주세요.
+              {% if group.error %}
+                네이버 API 키와 검색 결과를 확인해 주세요.
+              {% else %}
+                {% if price_filter_active %}
+                  입력한 가격 범위에 맞는 상품이 없습니다.
+                  가격 범위를 넓혀 다시 검색해 주세요.
+                {% else %}
+                  다른 분위기나 가구 종류를 선택해 주세요.
+                {% endif %}
+              {% endif %}
             </p>
           </div>
         {% endif %}

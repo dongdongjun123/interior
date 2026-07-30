@@ -62,6 +62,8 @@ AI Interior - Furniture Choice
           <strong id="keepCount">0</strong>
           · 제거
           <strong id="removeCount">0</strong>
+          · 변경
+          <strong id="replaceCount">0</strong>
         </div>
       </div>
 
@@ -127,6 +129,26 @@ AI Interior - Furniture Choice
                     for="remove_{{ item.id }}"
                   >
                     제거
+                  </label>
+
+                  <input
+                    type="radio"
+                    class="btn-check"
+                    name="decision_{{ item.id }}"
+                    id="replace_{{ item.id }}"
+                    value="replace"
+                    data-item-type="{{ item.type }}"
+                  >
+
+                  <label
+                    class="
+                      btn
+                      btn-outline-primary
+                      rounded-pill
+                    "
+                    for="replace_{{ item.id }}"
+                  >
+                    변경
                   </label>
                 </div>
               </div>

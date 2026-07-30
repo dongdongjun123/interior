@@ -260,7 +260,7 @@ def run_rule_based_layout_step(
     if refine is None:
         refine = os.getenv(
             "GEMINI_LAYOUT_REFINE",
-            "1",
+            "0",
         ).strip().lower() not in (
             "0",
             "false",

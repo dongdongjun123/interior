@@ -21,6 +21,16 @@
   let isSearching = false;
   let isSaving = false;
 
+  function removeTagFromInput(tag) {
+    const parts = textarea.value
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .filter((part) => part.toLowerCase() !== tag.trim().toLowerCase());
+
+    textarea.value = parts.join(", ");
+  }
+
   function updateGenerateButton() {
     generateBtn.disabled = isSearching || isSaving;
 
@@ -100,18 +110,26 @@
     `;
   }
 
-  function renderNoResults() {
+  function renderNoResults(needsSelection = false) {
     clearSelection();
 
     previewBox.innerHTML = `
       <div class="col-12">
         <div class="text-center py-4">
           <p class="mb-1">
-            비슷한 추천 이미지를 찾지 못했어요.
+            ${
+              needsSelection
+                ? "입력한 분위기를 정확히 이해하지 못했어요."
+                : "비슷한 추천 이미지를 찾지 못했어요."
+            }
           </p>
 
           <p class="text-muted small mb-0">
-            문구를 조금 다르게 입력해 주세요.
+            ${
+              needsSelection
+                ? "아래 무드 버튼 중 가까운 분위기를 선택해 주세요."
+                : "문구를 조금 다르게 입력해 주세요."
+            }
           </p>
         </div>
       </div>
@@ -136,11 +154,11 @@
     `;
   }
 
-  function renderPreview(results) {
+  function renderPreview(results, needsSelection = false) {
     clearSelection();
 
     if (!Array.isArray(results) || results.length === 0) {
-      renderNoResults();
+      renderNoResults(needsSelection);
       return;
     }
 
@@ -218,7 +236,7 @@
         return;
       }
 
-      renderPreview(data.results);
+      renderPreview(data.results, data.needs_selection);
     } catch (error) {
       if (error.name === "AbortError") {
         return;
@@ -283,15 +301,21 @@
 
       if (activeTags.has(tag)) {
         activeTags.delete(tag);
+        removeTagFromInput(tag);
       } else {
         activeTags.add(tag);
 
-        const currentText = textarea.value.trim();
+        const inputParts = textarea.value
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean);
+        const hasTag = inputParts.some(
+          (part) => part.toLowerCase() === tag.trim().toLowerCase()
+        );
 
-        if (!currentText.includes(tag)) {
-          textarea.value = currentText
-            ? `${currentText}, ${tag}`
-            : tag;
+        if (!hasTag) {
+          inputParts.push(tag);
+          textarea.value = inputParts.join(", ");
         }
       }
 

@@ -26,7 +26,18 @@
 
       <!-- 추천 태그 -->
       <div class="d-flex flex-wrap gap-2 mb-4" id="tagGroup">
-        {% for tag in ["Cozy", "Warm", "Plants", "Loft", "Wood", "Vintage"] %}
+        {% for tag in [
+          "Monochrome",
+          "Modern Grey",
+          "Minimal White",
+          "Luxury Modern",
+          "Vintage Retro",
+          "Plant Green",
+          "Cute Pastel",
+          "Natural Wood",
+          "Warm Cozy",
+          "Cool Airy"
+        ] %}
         <button
           type="button"
           class="btn btn-sm rounded-pill tag-btn"
@@ -97,7 +108,7 @@
 
 {% block extra_js %}
 <script
-  src="{{ url_for('static', filename='js/prompt.js') }}"
+  src="{{ url_for('static', filename='js/prompt.js', v='20260729-tag-sync') }}"
   data-generate-url="{{ url_for('save_style') }}"
   data-mood-search-url="{{ url_for('mood_search_api') }}"
 ></script>
