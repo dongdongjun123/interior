@@ -162,6 +162,10 @@ def _client() -> genai.Client:
     return genai.Client(
         api_key=api_key,
         http_options=types.HttpOptions(
+            # SDK 기본값은 "재시도 안 함"(stop_after_attempt(1))이라
+            # 503/429가 한 번만 떠도 평면도 생성이 통째로 실패한다.
+            # 지수 백오프 재시도를 켜서 일시적 과부하를 흡수한다.
+            retry_options=types.HttpRetryOptions(attempts=5),
             client_args={"trust_env": False},
             async_client_args={"trust_env": False},
         ),
