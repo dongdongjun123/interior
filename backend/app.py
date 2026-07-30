@@ -62,6 +62,7 @@ from model2 import (
     web_floorplan
     as model2_floorplan
 )
+from model2 import floorplan_3d
 
 from mood_pipeline import rule_based_svg
 
@@ -1553,6 +1554,53 @@ def loading():
     )
 
 
+def current_room_plan():
+    """세션에 담긴 방 실측치 → 면적·평수 요약. 없으면 (None, False).
+
+    /floorplan 과 /preview-3d 가 같은 치수를 써야 하므로 한 곳에 모아둔다.
+    """
+    room_width = session.get(
+        "room_width"
+    )
+
+    room_depth = session.get(
+        "room_depth"
+    )
+
+    ceiling_height = session.get(
+        "ceiling_height"
+    )
+
+    dimensions_provided = (
+        room_width is not None
+        and room_depth is not None
+        and ceiling_height is not None
+    )
+
+    if not dimensions_provided:
+        return None, False
+
+    area_sqm = (
+        room_width
+        * room_depth
+    )
+
+    return {
+        "area_sqm": round(
+            area_sqm,
+            1,
+        ),
+        "area_pyeong": round(
+            area_sqm
+            / 3.3058,
+            1,
+        ),
+        "width_m": room_width,
+        "depth_m": room_depth,
+        "ceiling_m": ceiling_height,
+    }, True
+
+
 @app.route("/floorplan")
 def floorplan():
     if (
@@ -1614,6 +1662,7 @@ def floorplan():
 
     svg_markup = None
     floorplan_error = None
+    scene_3d = None
 
     upload_path = os.path.join(
         UPLOAD_DIR,
@@ -1767,6 +1816,8 @@ def floorplan():
         svg_markup = result.get(
             "svg_markup"
         )
+        editable_layout = None
+
         if svg_markup and layout_file:
             try:
                 editable_layout = json.loads(
@@ -1785,6 +1836,25 @@ def floorplan():
                 print(
                     "[floorplan-edit] "
                     f"편집용 SVG 준비 실패: {edit_prepare_exc}"
+                )
+
+        # 3D 배치 확인용 씬 데이터. Gemini 재호출은 없다.
+        # 2D와 같은 좌표를 쓰려고 rule_based_svg 배치 파이프라인을 통과시키는데,
+        # 그 안에서 방 크기 전역을 바꾸므로 평면도 생성과 같은 락을 잡는다.
+        if editable_layout is not None:
+            try:
+                with floorplan_generation_lock:
+                    scene_3d = (
+                        floorplan_3d
+                        .build_scene(
+                            editable_layout,
+                            plan,
+                        )
+                    )
+            except Exception as scene_exc:
+                print(
+                    "[floorplan-3d] "
+                    f"씬 데이터 생성 실패: {scene_exc}"
                 )
 
     except Exception as exc:
@@ -1850,6 +1920,7 @@ def floorplan():
         floorplan_error=(
             floorplan_error
         ),
+        scene_3d=scene_3d,
     )
 
 
@@ -3746,6 +3817,434 @@ def result():
             selected_products
         ),
         readonly=False,
+    )
+
+
+# ──────────────────────────────────────────────────────
+# STEP 6: 3D 배치 확인
+# ──────────────────────────────────────────────────────
+def resolve_final_layout_path():
+    """3D로 보여줄 layout 파일 경로. 사용자의 최종 선택이 반영된 것을 우선한다.
+
+    1) modified_layout_file  — 가구 유지·제거 + 구매 상품이 반영된 layout
+    2) edited_floorplan_layout_file — 평면도 화면에서 드래그로 직접 고친 layout
+    3) floorplan_layout_file — AI가 처음 만든 layout
+    """
+    modified_name = session.get(
+        "modified_layout_file"
+    )
+
+    if modified_name:
+        candidate = os.path.join(
+            GENERATED_DIR,
+            os.path.basename(
+                modified_name
+            ),
+        )
+
+        if os.path.isfile(candidate):
+            return candidate, "modified"
+
+    edited_path = session.get(
+        "edited_floorplan_layout_file"
+    )
+
+    if edited_path and os.path.isfile(
+        edited_path
+    ):
+        return edited_path, "edited"
+
+    original_path = session.get(
+        "floorplan_layout_file"
+    )
+
+    if original_path and os.path.isfile(
+        original_path
+    ):
+        return original_path, "original"
+
+    return None, None
+
+
+# ──────────────────────────────────────────────────────
+# 개발용: 이미 캐시된 평면도를 세션에 태워 Gemini 호출 없이 뒷단계를 본다.
+# 무료 등급 일일 쿼터(모델당 20회)를 쓰지 않고 UI를 확인할 때 쓴다.
+# debug 모드에서만 열린다.
+# ──────────────────────────────────────────────────────
+def cached_floorplan_uploads():
+    """평면도 캐시(scene+layout+svg)가 완비된 업로드 파일명 목록."""
+    if not os.path.isdir(UPLOAD_DIR):
+        return []
+
+    ready = []
+
+    for name in sorted(
+        os.listdir(UPLOAD_DIR)
+    ):
+        path = os.path.join(
+            UPLOAD_DIR,
+            name,
+        )
+
+        if (
+            not os.path.isfile(path)
+            or name.startswith(".")
+        ):
+            continue
+
+        stem = os.path.splitext(
+            name
+        )[0]
+
+        needed = [
+            f"{stem}_model2_scene.json",
+            f"{stem}_model2_layout.json",
+            f"{stem}_model2_floorplan.svg",
+        ]
+
+        if all(
+            os.path.isfile(
+                os.path.join(
+                    GENERATED_DIR,
+                    part,
+                )
+            )
+            for part in needed
+        ):
+            ready.append(name)
+
+    return ready
+
+
+@app.route("/dev/use-cached")
+def dev_use_cached():
+    if not app.debug:
+        abort(404)
+
+    available = (
+        cached_floorplan_uploads()
+    )
+
+    requested = request.args.get(
+        "file",
+        "",
+    ).strip()
+
+    # 목록만 보여준다 (어떤 파일을 쓸 수 있는지 확인용)
+    if not requested:
+        return jsonify(
+            {
+                "count": len(
+                    available
+                ),
+                "files": available,
+                "usage": (
+                    "/dev/use-cached"
+                    "?file=<파일명|latest>"
+                    "&to=3d|floorplan|step5"
+                    "|furniture|result"
+                    "&width=3.6&depth=5.0"
+                    "&ceiling=2.4"
+                    "&prompt=<무드 문장>"
+                ),
+                "shortcuts": {
+                    "3d": (
+                        "/dev/use-cached"
+                        "?file=latest"
+                    ),
+                    "step5": (
+                        "/dev/use-cached"
+                        "?file=latest&to=step5"
+                    ),
+                },
+            }
+        )
+
+    # 파일명을 외우지 않아도 되게 latest 를 허용한다
+    if requested == "latest":
+        newest = max(
+            available,
+            key=lambda name: os.path.getmtime(
+                os.path.join(
+                    UPLOAD_DIR,
+                    name,
+                )
+            ),
+            default="",
+        )
+
+        if not newest:
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": (
+                        "재사용할 평면도 "
+                        "캐시가 없습니다."
+                    ),
+                }
+            ), 404
+
+        requested = newest
+
+    # 경로 조작 방지: 파일명만 취하고 캐시 완비 목록에 있는지 확인
+    safe_name = os.path.basename(
+        requested
+    )
+
+    if safe_name not in available:
+        return jsonify(
+            {
+                "ok": False,
+                "error": (
+                    "캐시가 완비된 업로드가 "
+                    "아닙니다."
+                ),
+                "files": available,
+            }
+        ), 404
+
+    clear_design_session()
+
+    session[
+        "uploaded_file"
+    ] = safe_name
+
+    session[
+        "original_filename"
+    ] = safe_name
+
+    # STEP 1(프롬프트·무드 선택)을 건너뛰므로 그 단계가 넣던 값을 채운다.
+    # 이게 없으면 /product-selection 이 /prompt 로 되돌린다.
+    session[
+        "mood_prompt"
+    ] = request.args.get(
+        "prompt",
+        "",
+    ).strip() or "밝고 아늑한 원룸"
+
+    session[
+        "style_tags"
+    ] = []
+
+    session[
+        "selected_mood_image"
+    ] = ""
+
+    def _dimension(key, fallback):
+        raw = request.args.get(
+            key,
+            "",
+        ).strip()
+
+        try:
+            value = float(raw)
+        except ValueError:
+            return fallback
+
+        return (
+            value
+            if value > 0
+            else fallback
+        )
+
+    session["room_width"] = _dimension(
+        "width",
+        3.6,
+    )
+
+    session["room_depth"] = _dimension(
+        "depth",
+        5.0,
+    )
+
+    session[
+        "ceiling_height"
+    ] = _dimension(
+        "ceiling",
+        2.4,
+    )
+
+    # 평면도 단계를 실제로 건너뛰려면 캐시 산출물 경로를 세션에 직접 넣어야 한다.
+    # (/floorplan 을 거치지 않으므로 그 라우트가 해주던 일을 여기서 대신한다)
+    stem = os.path.splitext(
+        safe_name
+    )[0]
+
+    session[
+        "floorplan_layout_file"
+    ] = os.path.join(
+        GENERATED_DIR,
+        f"{stem}_model2_layout.json",
+    )
+
+    session[
+        "original_floorplan_file"
+    ] = (
+        f"{stem}_model2_floorplan.svg"
+    )
+
+    # STEP 4·5 가 기존 가구 목록을 쓰므로 캐시된 layout 에서 같은 형태로 채운다
+    try:
+        cached_layout = json.loads(
+            Path(
+                session[
+                    "floorplan_layout_file"
+                ]
+            ).read_text(
+                encoding="utf-8"
+            )
+        )
+
+        detected = []
+
+        for index, obj in enumerate(
+            cached_layout.get(
+                "objects",
+                [],
+            )
+        ):
+            item_type = str(
+                obj.get("type")
+                or "unknown"
+            ).lower()
+
+            if item_type in {
+                "door",
+                "window",
+                "curtain",
+                "aircon",
+            }:
+                continue
+
+            detected.append(
+                {
+                    "id": (
+                        f"furniture_{index}"
+                    ),
+                    "label": (
+                        translate_furniture_label(
+                            item_type,
+                            obj.get(
+                                "label"
+                            ),
+                            index + 1,
+                        )
+                    ),
+                    "type": item_type,
+                    "source_index": index,
+                }
+            )
+
+        session[
+            "detected_furniture"
+        ] = detected
+
+    except Exception as exc:
+        print(
+            "[dev-use-cached] "
+            "기존 가구 목록 구성 실패: "
+            f"{exc}"
+        )
+
+    target = request.args.get(
+        "to",
+        "3d",
+    ).strip().lower()
+
+    destinations = {
+        "3d": "preview_3d",
+        "floorplan": "floorplan",
+        "step5": "product_selection",
+        "furniture": "furniture_choice",
+        "result": "result",
+    }
+
+    return redirect(
+        url_for(
+            destinations.get(
+                target,
+                "preview_3d",
+            )
+        )
+    )
+
+
+@app.route("/preview-3d")
+def preview_3d():
+    if (
+        "uploaded_file"
+        not in session
+    ):
+        return redirect(
+            url_for(
+                "upload"
+            )
+        )
+
+    layout_path, layout_source = (
+        resolve_final_layout_path()
+    )
+
+    scene_3d = None
+    scene_error = None
+
+    if not layout_path:
+        scene_error = (
+            "3D로 표시할 배치 정보가 없습니다. "
+            "평면도를 먼저 생성해 주세요."
+        )
+
+    else:
+        try:
+            layout = json.loads(
+                Path(
+                    layout_path
+                ).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            plan, _ = (
+                current_room_plan()
+            )
+
+            # build_scene 은 SVG와 같은 배치를 얻기 위해
+            # rule_based_svg 의 파이프라인을 돈다. 그 안에서 방 크기 전역
+            # (ROOM_W/ROOM_H)을 바꾸므로 평면도 생성과 같은 락을 잡는다.
+            with floorplan_generation_lock:
+                scene_3d = (
+                    floorplan_3d
+                    .build_scene(
+                        layout,
+                        plan,
+                    )
+                )
+
+            if not scene_3d.get(
+                "objects"
+            ):
+                scene_3d = None
+                scene_error = (
+                    "배치된 가구가 없어 "
+                    "3D로 보여줄 것이 없습니다."
+                )
+
+        except Exception as exc:
+            scene_error = (
+                "3D 배치 정보를 읽지 "
+                "못했습니다."
+            )
+
+            print(
+                "[preview-3d] "
+                f"씬 생성 실패: {exc}"
+            )
+
+    return render_template(
+        "preview_3d.html",
+        scene_3d=scene_3d,
+        scene_error=scene_error,
+        layout_source=layout_source,
     )
 
 
