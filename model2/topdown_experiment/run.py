@@ -162,10 +162,29 @@ def _client() -> genai.Client:
     return genai.Client(
         api_key=api_key,
         http_options=types.HttpOptions(
+            # SDK 기본값은 "재시도 안 함"(stop_after_attempt(1))이라
+            # 503/429가 한 번만 떠도 평면도 생성이 통째로 실패한다.
+            # 지수 백오프 재시도를 켜서 일시적 과부하를 흡수한다.
+            retry_options=types.HttpRetryOptions(attempts=5),
             client_args={"trust_env": False},
             async_client_args={"trust_env": False},
         ),
     )
+
+
+def _ensure_not_truncated(response: Any) -> None:
+    """토큰 한도로 잘린 응답을 JSON 문법 오류로 오인하지 않게 먼저 걸러낸다."""
+    candidates = getattr(response, "candidates", None) or []
+    if not candidates:
+        return
+    if str(getattr(candidates[0], "finish_reason", "")).endswith("MAX_TOKENS"):
+        usage = getattr(response, "usage_metadata", None)
+        thoughts = getattr(usage, "thoughts_token_count", None) or 0
+        raise RuntimeError(
+            "Gemini 응답이 토큰 한도에 걸려 잘렸습니다"
+            f"(thinking {thoughts} 토큰 소비). "
+            "max_output_tokens를 늘리거나 thinking_budget=0으로 두세요."
+        )
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -258,10 +277,16 @@ def analyze_room(
             response_mime_type="application/json",
             temperature=0.1,
             max_output_tokens=4096,
+            # thinking 토큰도 max_output_tokens를 함께 소비한다.
+            # 켜두면 추론이 예산을 다 써서 JSON이 중간에 잘린다
+            # (finish_reason=MAX_TOKENS → json.loads 파싱 실패).
+            # 이 작업은 구조화된 추출이라 thinking 이득이 없어 끈다.
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
     if not response.text:
         raise RuntimeError("Gemini가 배치 분석 JSON을 반환하지 않았습니다.")
+    _ensure_not_truncated(response)
     return normalize_layout(_extract_json(response.text))
 
 
