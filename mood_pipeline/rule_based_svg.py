@@ -274,12 +274,6 @@ def clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
-def overlap(a: Rect, b: Rect, pad: float = 10) -> bool:
-    ax, ay, aw, ah = a
-    bx, by, bw, bh = b
-    return not (ax + aw + pad < bx or bx + bw + pad < ax or ay + ah + pad < by or by + bh + pad < ay)
-
-
 def _is_percent_coords(obj: dict[str, Any]) -> bool:
     nums: list[float] = []
     for key in ("x", "y", "w", "h"):

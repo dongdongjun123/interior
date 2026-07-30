@@ -25,60 +25,6 @@ from .topdown_experiment.run import analyze_room
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ANALYSIS_MODEL = "gemini-3.6-flash"
 
-PRODUCT_VISUAL_PROMPT = """
-Analyze only the furniture product in this shopping representative image.
-Ignore the room, background, text, people, props, and photography perspective.
-Describe how the product should look as a clean orthographic top-down floorplan
-symbol. Return JSON only:
-{
-  "shape": "rectangle|rounded_rectangle|square|circle|oval|l_shape|irregular",
-  "primary_color": "#RRGGBB",
-  "secondary_color": "#RRGGBB",
-  "material": "wood|fabric|metal|glass|leather|woven|plastic|mixed",
-  "corner_roundness": 0.0,
-  "has_center_division": false,
-  "seat_count": 0,
-  "has_armrests": false,
-  "has_headboard": false,
-  "has_cushions": false,
-  "storage_type": "none|lift_up|drawers|open_shelf",
-  "is_frame_only": false,
-  "leg_style": "none|wood|metal|sled|four_legs|pedestal",
-  "pattern": "solid|striped|checkered|geometric|floral|woven",
-  "has_border": true,
-  "detail": "short visual feature",
-  "parts": [
-    {
-      "primitive": "rect|ellipse|line|polygon",
-      "role": "frame|surface|backrest|seat|cushion|armrest|storage|leg|detail",
-      "x": 0.0,
-      "y": 0.0,
-      "width": 1.0,
-      "height": 1.0,
-      "corner_roundness": 0.0,
-      "fill": "primary|secondary|accent|light|dark|none",
-      "stroke": true,
-      "stroke_width": 0.01,
-      "points": [[0.0, 0.0]],
-      "z_index": 0
-    }
-  ]
-}
-Use the actual product's dominant colors and actual outline. Distinguish a
-wooden storage bed frame from an upholstered bed, and preserve drawers,
-lift-up storage, open shelves, cushions, arms and legs when visible.
-corner_roundness must be from 0 to 1. Represent only features clearly visible
-in the product or explicitly stated in its title.
-Create 3 to 18 parts that together form a complete, recognizable top-down
-symbol of this exact product. All coordinates and sizes are normalized from
-0 to 1 inside the product bounds. For line, x/y is the start and width/height
-is the end. For polygon, provide 3 to 10 normalized points. Use symbolic fill
-names so title-based color correction remains possible. Preserve distinctive
-asymmetry, section count, arms, cushions, drawers and open spaces. Do not draw
-the photo background, labels, dimensions, people, bedding or decor that is
-not part of the sold product.
-""".strip()
-
 TYPE_MAP = {
     "bed": "bed",
     "desk": "desk",
@@ -312,53 +258,6 @@ def enrich_products_with_visual_profiles(
             )
 
     return products
-
-
-def _gemini_product_visual_profile(
-    client: genai.Client,
-    image_bytes: bytes,
-    mime_type: str,
-    product: dict[str, Any],
-) -> dict[str, Any]:
-    """Extract a detailed, renderer-friendly product profile with Gemini."""
-    model = os.getenv(
-        "GEMINI_PRODUCT_MODEL",
-        os.getenv(
-            "GEMINI_FEATURE_MODEL",
-            "gemini-2.5-flash-lite",
-        ),
-    ).strip()
-    context = (
-        f"\nProduct category: {product.get('type', '')}"
-        f"\nProduct title: {product.get('title', '')}"
-    )
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            PRODUCT_VISUAL_PROMPT + context,
-            types.Part.from_bytes(
-                data=image_bytes,
-                mime_type=mime_type,
-            ),
-        ],
-        config=types.GenerateContentConfig(
-            temperature=0,
-            response_mime_type="application/json",
-        ),
-    )
-    text = str(response.text or "").strip()
-    if text.startswith("```"):
-        text = re.sub(
-            r"^```(?:json)?\s*|\s*```$",
-            "",
-            text,
-            flags=re.IGNORECASE,
-        )
-    profile = json.loads(text)
-    if not isinstance(profile, dict):
-        raise ValueError("Gemini 상품 분석 응답이 JSON 객체가 아닙니다.")
-    profile["analysis_source"] = "gemini"
-    return profile
 
 
 def _local_product_visual_profile(

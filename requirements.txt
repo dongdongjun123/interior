@@ -15,6 +15,7 @@ python-dotenv
 google-genai
 ultralytics          # YOLO (backend/app.py의 가구 탐지)
 numpy
+pandas               # mood_search_v1 라이브러리 빌드·라벨링의 metadata.csv
 matplotlib
 scikit-learn
 umap-learn
