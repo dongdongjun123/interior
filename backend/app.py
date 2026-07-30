@@ -5,12 +5,14 @@ import re
 import sys
 import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 from flask import (
     Flask,
+    abort,
     jsonify,
     redirect,
     render_template,
@@ -18,11 +20,15 @@ from flask import (
     session,
     url_for,
 )
+from flask_login import current_user, login_required
 from ultralytics import YOLO
 
 import ai_backend
 import database
 import product_recommendation as furniture_recommender
+from auth import auth_bp
+from extensions import db, login_manager
+from models import SavedDesign, User
 
 
 BASE_DIR = os.path.dirname(
@@ -101,6 +107,37 @@ app.secret_key = os.getenv(
     "FLASK_SECRET_KEY",
     "dev-secret-key-change-in-production",
 )
+
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "sqlite:///"
+    + os.path.join(
+        BASE_DIR,
+        "app.db",
+    )
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)
+login_manager.init_app(app)
+login_manager.login_view = "auth.login"
+login_manager.login_message = "로그인이 필요한 페이지입니다."
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        return db.session.get(
+            User,
+            int(user_id),
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+app.register_blueprint(auth_bp)
+
+with app.app_context():
+    db.create_all()
 
 app.json.ensure_ascii = False
 
@@ -185,6 +222,44 @@ PURCHASE_ITEM_IDS = {
     "rug": "rug-001",
     "plant": "plant-001",
 }
+
+
+def build_purchase_items(
+    purchase_types,
+):
+    """Convert persisted furniture type names into result-view records."""
+    return [
+        {
+            "type": item_type,
+            "label": PURCHASE_LABELS.get(
+                item_type,
+                item_type,
+            ),
+            "item_id": PURCHASE_ITEM_IDS.get(
+                item_type,
+                item_type,
+            ),
+        }
+        for item_type in (purchase_types or [])
+        if isinstance(item_type, str)
+    ]
+
+
+def parse_saved_json(
+    raw,
+    default,
+):
+    """Read a JSON snapshot without allowing one damaged row to break a page."""
+    try:
+        value = json.loads(
+            raw or ""
+        )
+    except (
+        TypeError,
+        json.JSONDecodeError,
+    ):
+        return default
+    return value
 
 
 # 네이버 쇼핑 검색에 사용할 기본 검색어
@@ -325,6 +400,21 @@ def load_json_cache(
     safe_filename = os.path.basename(
         filename
     )
+
+    # A saved history entry owns an immutable reference to this product
+    # snapshot. Do not remove it when a later pipeline run replaces the
+    # current session's selected-products cache.
+    if (
+        SavedDesign.query
+        .filter_by(
+            selected_products_file=(
+                safe_filename
+            )
+        )
+        .first()
+        is not None
+    ):
+        return
 
     file_path = os.path.join(
         PRODUCT_CACHE_DIR,
@@ -1619,9 +1709,116 @@ def gallery():
 
 
 @app.route("/my-designs")
+@login_required
 def my_designs():
+    designs = (
+        SavedDesign.query
+        .filter_by(
+            user_id=current_user.id
+        )
+        .order_by(
+            SavedDesign.created_at.desc()
+        )
+        .all()
+    )
     return render_template(
-        "my_designs.html"
+        "my_designs.html",
+        designs=designs,
+    )
+
+
+@app.route("/my-designs/<int:design_id>")
+@login_required
+def design_detail(design_id):
+    design = db.session.get(
+        SavedDesign,
+        design_id,
+    )
+    if (
+        design is None
+        or design.user_id
+        != current_user.id
+    ):
+        abort(404)
+
+    furniture_choices = parse_saved_json(
+        design.furniture_choices_json,
+        [],
+    )
+    if not isinstance(
+        furniture_choices,
+        list,
+    ):
+        furniture_choices = []
+
+    purchase_types = parse_saved_json(
+        design.purchase_items_json,
+        [],
+    )
+    if not isinstance(
+        purchase_types,
+        list,
+    ):
+        purchase_types = []
+
+    selected_products = load_json_cache(
+        design.selected_products_file,
+        default=[],
+    )
+    if not isinstance(
+        selected_products,
+        list,
+    ):
+        selected_products = []
+
+    return render_template(
+        "result.html",
+        readonly=True,
+        saved_design=design,
+        generated_file=design.generated_file,
+        description=design.description,
+        tags=parse_saved_json(
+            design.tags_json,
+            [],
+        ),
+        original_floorplan_file=(
+            design.original_floorplan_file
+        ),
+        modified_floorplan_file=(
+            design.modified_floorplan_file
+        ),
+        modified_svg_markup=read_generated_svg(
+            design.modified_floorplan_file
+        ),
+        furniture_choices=furniture_choices,
+        purchase_items=build_purchase_items(
+            purchase_types
+        ),
+        selected_products=selected_products,
+    )
+
+
+@app.route(
+    "/my-designs/<int:design_id>/delete",
+    methods=["POST"],
+)
+@login_required
+def delete_design(design_id):
+    design = db.session.get(
+        SavedDesign,
+        design_id,
+    )
+    if (
+        design is None
+        or design.user_id
+        != current_user.id
+    ):
+        abort(404)
+
+    db.session.delete(design)
+    db.session.commit()
+    return redirect(
+        url_for("my_designs")
     )
 
 
@@ -1632,9 +1829,26 @@ def about():
     )
 
 
+def clear_design_session():
+    """Reset the design workflow without logging the current user out."""
+    login_state = {
+        key: session[key]
+        for key in (
+            "_user_id",
+            "_fresh",
+            "_id",
+        )
+        if key in session
+    }
+    session.clear()
+    session.update(
+        login_state
+    )
+
+
 @app.route("/home")
 def home():
-    session.clear()
+    clear_design_session()
 
     return redirect(
         url_for(
@@ -1645,7 +1859,7 @@ def home():
 
 @app.route("/start")
 def start():
-    session.clear()
+    clear_design_session()
 
     return redirect(
         url_for(
@@ -4180,6 +4394,22 @@ def add_product():
             "image": data.get(
                 "image"
             ),
+            "price": data.get(
+                "price"
+            ),
+            "shop": data.get(
+                "shop"
+            ),
+            "brand": data.get(
+                "brand"
+            ),
+            "maker": data.get(
+                "maker"
+            ),
+            "label": PURCHASE_LABELS.get(
+                item_type,
+                item_type,
+            ),
             "marker": marker,
         }
     )
@@ -4277,25 +4507,9 @@ def result():
         [],
     )
 
-    purchase_items = [
-        {
-            "type": item_type,
-            "label": (
-                PURCHASE_LABELS.get(
-                    item_type,
-                    item_type,
-                )
-            ),
-            "item_id": (
-                PURCHASE_ITEM_IDS.get(
-                    item_type,
-                    item_type,
-                )
-            ),
-        }
-        for item_type
-        in purchase_types
-    ]
+    purchase_items = build_purchase_items(
+        purchase_types
+    )
 
     selected_products = (
         load_json_cache(
@@ -4343,6 +4557,149 @@ def result():
         selected_products=(
             selected_products
         ),
+        readonly=False,
+    )
+
+
+@app.route(
+    "/my-designs/save",
+    methods=["POST"],
+)
+def save_design():
+    if not current_user.is_authenticated:
+        return jsonify(
+            {
+                "ok": False,
+                "error": "login_required",
+            }
+        ), 401
+
+    payload = request.get_json(
+        silent=True
+    ) or {}
+    modified_svg = str(
+        payload.get(
+            "modified_svg"
+        )
+        or ""
+    )
+    modified_floorplan_file = session.get(
+        "modified_floorplan_file"
+    )
+
+    if modified_svg:
+        if (
+            len(
+                modified_svg.encode(
+                    "utf-8"
+                )
+            )
+            > 3_000_000
+        ):
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": (
+                        "저장할 평면도 데이터가 너무 큽니다."
+                    ),
+                }
+            ), 400
+        try:
+            sanitized_svg = (
+                model2_floorplan
+                .sanitize_floorplan_edit_svg(
+                    modified_svg
+                )
+            )
+            modified_floorplan_file = (
+                "saved_modified_floorplan_"
+                f"{uuid.uuid4().hex[:16]}.svg"
+            )
+            (
+                Path(GENERATED_DIR)
+                / modified_floorplan_file
+            ).write_text(
+                sanitized_svg,
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": (
+                        "수정 평면도를 저장하지 "
+                        f"못했습니다: {exc}"
+                    ),
+                }
+            ), 400
+
+    selected_products = load_json_cache(
+        session.get(
+            "selected_products_file"
+        ),
+        default=[],
+    )
+    if not isinstance(
+        selected_products,
+        list,
+    ):
+        selected_products = []
+    selected_products_file = save_json_cache(
+        "saved_products",
+        selected_products,
+    )
+
+    now = datetime.now()
+    design = SavedDesign(
+        user_id=current_user.id,
+        title=now.strftime(
+            "%Y년 %m월 %d일 %H:%M 디자인"
+        ),
+        generated_file=session.get(
+            "generated_file"
+        ),
+        original_floorplan_file=session.get(
+            "original_floorplan_file"
+        ),
+        modified_floorplan_file=(
+            modified_floorplan_file
+        ),
+        selected_products_file=(
+            selected_products_file
+        ),
+        description=session.get(
+            "ai_description"
+        ),
+        tags_json=json.dumps(
+            session.get(
+                "style_tags",
+                [],
+            ),
+            ensure_ascii=False,
+        ),
+        furniture_choices_json=json.dumps(
+            session.get(
+                "furniture_choices",
+                [],
+            ),
+            ensure_ascii=False,
+        ),
+        purchase_items_json=json.dumps(
+            session.get(
+                "purchase_items",
+                [],
+            ),
+            ensure_ascii=False,
+        ),
+    )
+    db.session.add(design)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "ok": True,
+            "design_id": design.id,
+        }
     )
 
 

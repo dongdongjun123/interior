@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% block title %}결 - 로그인{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 520px;">
+  <div class="preview-card bg-white border rounded-4 p-4 p-md-5">
+    <h2 class="mb-2">로그인</h2>
+    <p class="text-muted mb-4">저장한 디자인을 다시 확인해 보세요.</p>
+
+    {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('auth.login', next=next_url) }}">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <div class="mb-3">
+        <label for="loginEmail" class="form-label">이메일</label>
+        <input
+          id="loginEmail"
+          name="email"
+          type="email"
+          class="form-control"
+          value="{{ request.form.get('email', '') }}"
+          autocomplete="email"
+          required
+        >
+      </div>
+      <div class="mb-4">
+        <label for="loginPassword" class="form-label">비밀번호</label>
+        <input
+          id="loginPassword"
+          name="password"
+          type="password"
+          class="form-control"
+          autocomplete="current-password"
+          required
+        >
+      </div>
+      <button type="submit" class="btn btn-dark rounded-pill px-4 w-100">
+        로그인
+      </button>
+    </form>
+
+    <p class="text-center text-muted small mt-4 mb-0">
+      아직 계정이 없나요?
+      <a href="{{ url_for('auth.signup', next=next_url) }}">회원가입</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

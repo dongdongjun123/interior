@@ -77,6 +77,27 @@ a:hover {
   color: #fff;
 }
 
+.btn-hero-start {
+  width: min(100%, 474px);
+  padding: 1.1rem 2.2rem;
+  border: none;
+  border-radius: 16px;
+  background-color: #9a6d45;
+  color: #fff;
+  box-shadow: none;
+  font-family: var(--font-base);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -.035em;
+}
+
+.btn-hero-start:hover,
+.btn-hero-start:focus {
+  border-color: #805736;
+  background-color: #805736;
+  color: #fff;
+}
+
 .btn-outline-secondary {
   color: var(--color-text-muted);
   border-color: var(--color-border);

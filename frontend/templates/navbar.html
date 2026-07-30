@@ -2,9 +2,14 @@
 <nav class="navbar navbar-expand-md border-bottom bg-white sticky-top">
   <div class="container-fluid">
 
-    <!-- 로고: 세션을 초기화하고 홈으로 돌아간다 -->
-    <a class="navbar-brand fw-bold" href="{{ url_for('home') }}">
-      🏠 AI Interior
+    <!-- 로고: 로그인과 진행 중인 작업을 유지한 채 첫 화면으로 이동 -->
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+      <img
+        class="navbar-brand-logo"
+        src="{{ url_for('static', filename='images/gyeol-logo.svg') }}"
+        alt=""
+      >
+      <span>결</span>
     </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
@@ -15,16 +20,23 @@
       <!-- 메뉴 -->
       <ul class="navbar-nav mx-auto gap-3">
         <li class="nav-item"><a class="nav-link" href="{{ url_for('gallery') }}">Gallery</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('my_designs') }}">My Designs</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('my_designs') }}">My Design</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('about') }}">About</a></li>
       </ul>
 
-      <!-- 프로필 자리 -->
-      <div class="d-flex align-items-center">
-        <div class="border rounded-circle d-flex align-items-center justify-content-center"
-             style="width:36px; height:36px;">
-          <small>P</small>
-        </div>
+      <div class="d-flex align-items-center gap-2">
+        {% if current_user.is_authenticated %}
+          <span class="navbar-user-email">
+            {{ current_user.email }}
+          </span>
+          <a class="btn btn-sm btn-outline-dark rounded-pill px-3"
+             href="{{ url_for('auth.logout') }}">로그아웃</a>
+        {% else %}
+          <a class="btn btn-sm btn-outline-dark rounded-pill px-3"
+             href="{{ url_for('auth.login') }}">로그인</a>
+          <a class="btn btn-sm btn-dark rounded-pill px-3"
+             href="{{ url_for('auth.signup') }}">회원가입</a>
+        {% endif %}
       </div>
     </div>
 

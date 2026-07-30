@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -12,29 +13,71 @@ from .gemini_svg_experiment import _extract_svg
 
 
 DEFAULT_ICON_SIZE = 200
+DEFAULT_ICON_MODEL = "gemini-3.5-flash-lite"
+HQ_ICON_MODEL = "gemini-3.6-flash"
+
+# Large, visually prominent furniture benefits most from the more capable
+# model. Include the category aliases used by the shopping/floorplan flow.
+HQ_MODEL_CATEGORIES = {
+    "bed",
+    "sofa",
+    "table",
+    "desk",
+    "coffee_table",
+    "low_table",
+}
+TOPDOWN_ONLY_CATEGORIES = {"bed"}
+
+TOPDOWN_VIEWPOINT_INSTRUCTION = """
+The supplied photo is usually an angled product photograph. Mentally rotate
+the camera to look straight down at the object from directly above.
+- Use a true bird's-eye orthographic composition.
+- Do not reuse the photograph's oblique or isometric camera angle.
+""".strip()
+
+FLEXIBLE_VIEWPOINT_INSTRUCTION = """
+Use a directly overhead composition or a very gentle top-down isometric cue
+when side construction is essential for recognizing this furniture. It must
+still read as an object placed on a floorplan, not as a product photograph.
+""".strip()
 
 ICON_PROMPT_TEMPLATE = """
 You are an expert interior illustrator and SVG artist.
-Look at the supplied shopping photo and draw only the sold furniture product
-as a polished small icon for a warm hand-drawn architectural floorplan.
+Look at the supplied shopping photo and redraw the pictured furniture as a
+polished small icon for a warm hand-drawn architectural floorplan. The icon
+must look like this specific listing photo, not a generic category symbol.
 
 Visual requirements:
-- Preserve the product's real silhouette, proportions, dominant colors,
-  material, section count, cushions, arms, frame, storage and distinctive
-  pattern as closely as a small icon allows.
-- The photo is authoritative for color. Shopping titles often list several
-  option colors that are not the pictured option. Use a title color only when
-  that same color is visibly supported by the supplied photo.
+{viewpoint_instruction}
+- Treat the visible product pixels as authoritative. Preserve the pictured
+  silhouette, proportions, dominant and secondary colors, material, section
+  count, cushions, arms, frame, storage, legs and distinctive pattern.
+- A shopping title can contain several option colors. Never average or mix
+  those words. Use the color visibly shown in the supplied photograph.
+- First identify the main product region and ignore colors from the wall,
+  floor, empty background, text panel and surrounding furniture.
 - Convert the photographic perspective into a directly overhead orthographic
   view. A very gentle isometric cue is allowed only inside the object where it
   explains its construction.
 - Make the product immediately recognizable. Use curved paths, restrained
   local highlights and small gradients to describe actual volume. Do not fake
   depth with a large offset shadow or a thick duplicate silhouette.
-- Draw only the product being sold. Exclude the room, floor, wall, people,
-  decorations, dimensions, labels and unrelated props.
-- If the listing is for a frame, cabinet or storage product, do not invent
-  bedding, cushions or accessories that are not part of that product.
+- Exclude the room, floor, wall, people, dimensions, labels and unrelated
+  props, but retain presentation components that define the photographed
+  furniture's visible appearance. For example, a photographed bed may retain
+  its visible mattress, duvet and pillows; a sofa retains its pictured seat
+  and back cushions. Do not invent components that are absent from the photo.
+- Category-specific fidelity:
+  * bed: show the actual headboard/frame profile plus visible mattress,
+    pillows and duvet colors or pattern; keep exposed legs/storage visible.
+  * sofa/chair: preserve seat count, arm shape, back cushions, piping and legs.
+  * rug: preserve outline, border, pile/pattern and main color distribution.
+  * table/desk: preserve top shape, thickness, leg/base style and material.
+  * cabinet/shelf/dresser/nightstand: preserve doors, drawers, shelves,
+    handles, open spaces and top material.
+  * lamp/plant/mirror: preserve the distinctive shade/foliage/frame outline.
+- Occupy roughly 86% to 94% of the canvas while keeping a small transparent
+  margin. Center the object and avoid large unused whitespace.
 - Transparent background. Keep every visible shape inside the canvas.
 
 Technical requirements:
@@ -44,7 +87,7 @@ Technical requirements:
 - Self-contained vector SVG only. No image, external URL, font, script,
   foreignObject, animation, event handler or embedded raster data.
 - Use only svg, g, defs, path, rect, circle, ellipse, line, polyline, polygon,
-  linearGradient, radialGradient, stop and clipPath elements.
+  linearGradient, radialGradient, stop, pattern and clipPath elements.
 - Use SVG presentation attributes directly on elements. Do not use a style
   element or style attributes.
 - Use at most 120 SVG elements. Keep paths compact.
@@ -54,7 +97,7 @@ Technical requirements:
 ALLOWED_TAGS = {
     "svg", "g", "defs", "path", "rect", "circle", "ellipse", "line",
     "polyline", "polygon", "linearGradient", "radialGradient", "stop",
-    "clipPath",
+    "pattern", "clipPath",
 }
 
 
@@ -65,34 +108,96 @@ def generate_product_icon_svg(
     *,
     title: str,
     category: str,
-    model: str,
+    model: str | None = None,
     size: int = DEFAULT_ICON_SIZE,
 ) -> str:
     """Ask Gemini for a direct SVG icon and return a sanitized SVG document."""
-    prompt = ICON_PROMPT_TEMPLATE.format(size=size)
+    normalized_category = (category or "").strip().lower()
+    resolved_model = resolve_icon_model(normalized_category, model)
+    viewpoint_instruction = (
+        TOPDOWN_VIEWPOINT_INSTRUCTION
+        if normalized_category in TOPDOWN_ONLY_CATEGORIES
+        else FLEXIBLE_VIEWPOINT_INSTRUCTION
+    )
+    prompt = ICON_PROMPT_TEMPLATE.format(
+        size=size,
+        viewpoint_instruction=viewpoint_instruction,
+    )
     prompt += (
         "\n\nPRODUCT INFO:"
         f"\n- category: {category}"
         f"\n- title: {title}"
+        "\n- rendering mode: photographed appearance"
     )
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            prompt,
-            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-        ],
-        config=types.GenerateContentConfig(
-            response_mime_type="text/plain",
-            temperature=0.2,
-            max_output_tokens=12000,
-        ),
+    candidate_models = [resolved_model]
+    # Free-tier quotas are tracked per model. If the high-quality model has
+    # exhausted its daily allowance, retry once with Lite instead of silently
+    # returning the generic local furniture template.
+    if (
+        model is None
+        and resolved_model != DEFAULT_ICON_MODEL
+    ):
+        fallback_model = os.getenv(
+            "GEMINI_ICON_MODEL",
+            DEFAULT_ICON_MODEL,
+        ).strip()
+        if fallback_model and fallback_model not in candidate_models:
+            candidate_models.append(fallback_model)
+
+    failures: list[str] = []
+    for candidate_model in candidate_models:
+        try:
+            response = client.models.generate_content(
+                model=candidate_model,
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type=mime_type,
+                    ),
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type="text/plain",
+                    temperature=0.2,
+                    max_output_tokens=12000,
+                ),
+            )
+            if not response.text:
+                raise RuntimeError(
+                    "Gemini가 상품 아이콘 SVG를 반환하지 않았습니다."
+                )
+            return sanitize_product_icon_svg(
+                _extract_svg(str(response.text)),
+                size=size,
+            )
+        except Exception as exc:
+            failures.append(
+                f"{candidate_model}: {type(exc).__name__}: {exc}"
+            )
+
+    raise RuntimeError(
+        "상품 아이콘 Gemini 모델을 모두 사용할 수 없습니다. "
+        + " | ".join(failures)
     )
-    if not response.text:
-        raise RuntimeError("Gemini가 상품 아이콘 SVG를 반환하지 않았습니다.")
-    return sanitize_product_icon_svg(
-        _extract_svg(str(response.text)),
-        size=size,
-    )
+
+
+def resolve_icon_model(
+    category: str | None,
+    override: str | None = None,
+) -> str:
+    """Choose the attached prototype's category-aware Gemini model."""
+    if override and override.strip():
+        return override.strip()
+    normalized = (category or "").strip().lower()
+    if normalized in HQ_MODEL_CATEGORIES:
+        return os.getenv(
+            "GEMINI_ICON_MODEL_HQ",
+            HQ_ICON_MODEL,
+        ).strip()
+    return os.getenv(
+        "GEMINI_ICON_MODEL",
+        DEFAULT_ICON_MODEL,
+    ).strip()
 
 
 def sanitize_product_icon_svg(svg_text: str, *, size: int = DEFAULT_ICON_SIZE) -> str:

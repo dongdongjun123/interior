@@ -9,6 +9,7 @@ venv-win/
 
 # 환경변수
 .env
+backend/app.db
 
 # 생성 산출물 (재생성 가능)
 output/floorplans/*

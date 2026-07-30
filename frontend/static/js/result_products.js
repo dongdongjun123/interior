@@ -63,6 +63,10 @@
           title: product.title,
           link: product.link,
           image: product.image,
+          price: product.price,
+          shop: product.shop,
+          brand: product.brand,
+          maker: product.maker,
         }),
       });
       const data = await res.json();

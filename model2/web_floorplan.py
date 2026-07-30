@@ -146,10 +146,14 @@ def enrich_products_with_visual_profiles(
     cache_root = Path(cache_dir)
     gemini_cache_dir = cache_root / "product_visuals_gemini_v3"
     local_cache_dir = cache_root / "product_visuals_local_v3"
-    direct_svg_cache_dir = cache_root / "product_icon_svg_v2"
+    # Bump the cache whenever the photo-to-icon contract changes.  Reusing
+    # v2 here would keep serving the old generic/incorrectly colored icons.
+    direct_svg_cache_dir = cache_root / "product_icon_svg_v4"
     gemini_cache_dir.mkdir(parents=True, exist_ok=True)
     local_cache_dir.mkdir(parents=True, exist_ok=True)
     direct_svg_cache_dir.mkdir(parents=True, exist_ok=True)
+    direct_svg_error_dir = cache_root / "product_icon_errors_v4"
+    direct_svg_error_dir.mkdir(parents=True, exist_ok=True)
     gemini_client: genai.Client | None = None
     gemini_unavailable = False
 
@@ -167,6 +171,7 @@ def enrich_products_with_visual_profiles(
         gemini_cache_path = gemini_cache_dir / f"{cache_key}.json"
         local_cache_path = local_cache_dir / f"{cache_key}.json"
         direct_svg_cache_path = direct_svg_cache_dir / f"{cache_key}.svg"
+        direct_svg_error_path = direct_svg_error_dir / f"{cache_key}.txt"
 
         try:
             image_bytes: bytes | None = None
@@ -219,24 +224,47 @@ def enrich_products_with_visual_profiles(
                         mime_type,
                         title=str(product.get("title") or ""),
                         category=str(product.get("type") or ""),
-                        model=os.getenv(
-                            "GEMINI_PRODUCT_ICON_MODEL",
-                            os.getenv(
-                                "GEMINI_ANALYSIS_MODEL",
-                                DEFAULT_ANALYSIS_MODEL,
-                            ),
-                        ).strip(),
+                        # When no explicit override is configured,
+                        # product_icon_svg selects the model by category:
+                        # prominent furniture uses Flash; smaller items Lite.
+                        model=(
+                            os.getenv("GEMINI_PRODUCT_ICON_MODEL", "").strip()
+                            or None
+                        ),
                     )
                     direct_svg_cache_path.write_text(
                         icon_svg,
                         encoding="utf-8",
                     )
+                    direct_svg_error_path.unlink(
+                        missing_ok=True
+                    )
                     product["icon_svg"] = icon_svg
                 except Exception as exc:
-                    gemini_unavailable = True
+                    # A malformed SVG or one problematic product must not
+                    # prevent the remaining selected products from being
+                    # analyzed. Only quota/auth/connectivity failures make
+                    # further calls in this request pointless.
+                    error_text = str(exc).lower()
+                    gemini_unavailable = any(
+                        marker in error_text
+                        for marker in (
+                            "resource_exhausted",
+                            "quota",
+                            "429",
+                            "api key",
+                            "permission_denied",
+                            "connection",
+                            "timed out",
+                        )
+                    )
                     print(
                         "[product-icon] "
                         f"Gemini 직접 SVG 생성 실패, 로컬 아이콘으로 대체: {exc}"
+                    )
+                    direct_svg_error_path.write_text(
+                        str(exc),
+                        encoding="utf-8",
                     )
 
             if gemini_cache_path.exists():
@@ -1852,24 +1880,24 @@ def _add_profiled_product_shape(
     height: float,
 ) -> None:
     default_sizes = {
-        "bed": (144.0, 192.0),
-        "sofa": (152.0, 90.0),
-        "chair": (76.0, 76.0),
-        "desk": (140.0, 80.0),
-        "table": (140.0, 80.0),
-        "bench": (136.0, 60.0),
-        "shelf": (110.0, 110.0),
-        "cabinet": (110.0, 110.0),
-        "dresser": (110.0, 110.0),
-        "wardrobe": (110.0, 140.0),
-        "lamp": (72.0, 72.0),
-        "rug": (144.0, 108.0),
-        "plant": (82.0, 96.0),
+        "bed": (187.0, 250.0),
+        "sofa": (198.0, 117.0),
+        "chair": (99.0, 99.0),
+        "desk": (182.0, 104.0),
+        "table": (182.0, 104.0),
+        "bench": (177.0, 78.0),
+        "shelf": (143.0, 143.0),
+        "cabinet": (143.0, 143.0),
+        "dresser": (143.0, 143.0),
+        "wardrobe": (143.0, 182.0),
+        "lamp": (94.0, 94.0),
+        "rug": (187.0, 140.0),
+        "plant": (107.0, 125.0),
     }
     default_width, default_height = (
         default_sizes.get(
             item_type,
-            (100.0, 80.0),
+            (130.0, 104.0),
         )
     )
     width = width or default_width
@@ -3082,17 +3110,17 @@ def _add_selected_product(
     icon_svg = product.get("icon_svg")
     if isinstance(icon_svg, str) and icon_svg.strip():
         direct_width = object_width or {
-            "bed": 144.0,
-            "sofa": 152.0,
-            "chair": 76.0,
-            "rug": 144.0,
-        }.get(item_type, 110.0)
+            "bed": 187.0,
+            "sofa": 198.0,
+            "chair": 99.0,
+            "rug": 187.0,
+        }.get(item_type, 143.0)
         direct_height = object_height or {
-            "bed": 192.0,
-            "sofa": 90.0,
-            "chair": 76.0,
-            "rug": 108.0,
-        }.get(item_type, 90.0)
+            "bed": 250.0,
+            "sofa": 117.0,
+            "chair": 99.0,
+            "rug": 140.0,
+        }.get(item_type, 117.0)
         fallback_elements = list(group)
         direct_icon_added = _add_direct_product_icon(
             group,
@@ -3126,17 +3154,17 @@ def _add_selected_product(
         )
 
     control_width = object_width or {
-        "bed": 144.0,
-        "sofa": 152.0,
-        "chair": 76.0,
-        "rug": 144.0,
-    }.get(item_type, 110.0)
+        "bed": 187.0,
+        "sofa": 198.0,
+        "chair": 99.0,
+        "rug": 187.0,
+    }.get(item_type, 143.0)
     control_height = object_height or {
-        "bed": 192.0,
-        "sofa": 90.0,
-        "chair": 76.0,
-        "rug": 108.0,
-    }.get(item_type, 90.0)
+        "bed": 250.0,
+        "sofa": 117.0,
+        "chair": 99.0,
+        "rug": 140.0,
+    }.get(item_type, 117.0)
     control_y = -control_height / 2 - 15
     controls = (
         (
@@ -3217,11 +3245,7 @@ def _add_selected_product(
         "x": x,
         "y": (
             y
-            + (
-                object_height / 2
-                if object_height
-                else 70
-            )
+            + control_height / 2
             + 24
         ),
         "text": f"{marker}. 새 {obj.get('label') or item_type}",

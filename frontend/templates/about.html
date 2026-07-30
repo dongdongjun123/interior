@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}AI Interior - About{% endblock %}
+{% block title %}결 - About{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
@@ -9,33 +9,73 @@
 {% block content %}
 <div class="container" style="max-width: 760px;">
   <section class="my-5">
-    <h1 class="mb-3">AI Interior 소개</h1>
+    <h1 class="mb-3">결 소개</h1>
     <p class="lead text-muted">
-      방 사진 한 장으로 우리집 평면도를 만들고, 원하는 스타일로 인테리어를 완성하는 서비스입니다.
+      결은 사용자가 원하는 분위기와 실제 방 사진을 함께 분석해,
+      평면도를 만들고 가구 배치와 상품 선택까지 이어주는 인테리어 서비스입니다.
+    </p>
+    <p class="text-muted mb-0">
+      공간의 현재 모습을 이해하고 사용자의 취향이라는 결을 더해,
+      직접 수정하고 저장할 수 있는 하나의 디자인 흐름을 제공합니다.
     </p>
 
     <hr class="my-4">
 
     <h5 class="mb-2">이렇게 동작해요</h5>
     <ol class="text-muted" style="line-height: 2;">
-      <li><strong>사진 업로드</strong> — 방 사진 한 장을 올립니다.</li>
-      <li><strong>AI 공간 분석</strong> — Gemini가 벽·가구·창문 위치를 분석해 2D 평면도를 만듭니다.</li>
-      <li><strong>가구 정리</strong> — 기존 가구를 유지·제거하고, 원하는 위치로 옮겨봅니다.</li>
-      <li><strong>추천 반영</strong> — 무드에 맞는 가구를 추천받아 배치에 반영합니다.</li>
+      <li>
+        <strong>분위기 선택</strong> — 원하는 인테리어 분위기를 입력하고,
+        비슷한 추천 이미지 중 기준이 될 사진을 선택합니다.
+      </li>
+      <li>
+        <strong>방 사진 업로드</strong> — 실제로 바꾸고 싶은 실내 사진 한 장을 올립니다.
+      </li>
+      <li>
+        <strong>AI 평면도 생성</strong> — 사진 속 공간 구조와 가구를 분석해
+        편집 가능한 2D 평면도를 만듭니다.
+      </li>
+      <li>
+        <strong>기존 가구 편집</strong> — 평면도가 실제 방과 다르면 가구를 직접 이동하고,
+        회전하거나 크기를 조절할 수 있습니다.
+      </li>
+      <li>
+        <strong>가구 유지·제거·변경</strong> — 기존 가구를 그대로 둘지,
+        제거하거나 새 상품으로 변경할지 선택합니다.
+      </li>
+      <li>
+        <strong>분위기 기반 상품 추천</strong> — 처음 선택한 텍스트와 무드 이미지를 토대로
+        분위기에 맞는 실제 가구 상품을 추천합니다.
+      </li>
+      <li>
+        <strong>선택 반영 평면도</strong> — 선택한 상품 사진의 색상과 형태를 반영한
+        SVG 가구 아이콘을 평면도에 배치하고 위치·방향·크기를 조절합니다.
+      </li>
+      <li>
+        <strong>디자인 저장</strong> — 로그인하면 최종 평면도와 가구 정보가
+        My Design에 히스토리로 저장됩니다.
+      </li>
     </ol>
 
     <hr class="my-4">
 
     <h5 class="mb-2">사용 기술</h5>
     <ul class="text-muted" style="line-height: 2;">
-      <li>Gemini — 사진에서 공간 구조 추출 및 평면도 생성</li>
-      <li>CLIP — 프롬프트로 비슷한 무드의 인테리어 사진 검색</li>
-      <li>규칙 기반 SVG 렌더러 — 평면도를 아이콘으로 그려내기</li>
+      <li><strong>Gemini</strong> — 방 사진의 공간 구조 분석과 상품 사진 기반 SVG 가구 표현</li>
+      <li><strong>CLIP</strong> — 사용자 텍스트와 인테리어 이미지의 분위기 유사도 검색</li>
+      <li><strong>네이버 쇼핑 검색</strong> — 가구 종류와 디자인 속성에 맞는 실제 상품 탐색</li>
+      <li><strong>SVG 편집 시스템</strong> — 평면도와 가구의 이동·회전·확대·축소 처리</li>
+      <li><strong>Flask·SQLite</strong> — 사용자 로그인과 디자인 히스토리 저장</li>
     </ul>
+
+    <div class="p-3 mt-4 rounded-3 bg-light text-muted small">
+      AI가 생성한 평면도와 가구 크기는 한 장의 사진을 바탕으로 추정한 결과이므로
+      실제 공간과 차이가 있을 수 있습니다. 결에서는 이 차이를 사용자가 직접
+      수정할 수 있도록 편집 기능을 제공합니다.
+    </div>
 
     <div class="text-center mt-5">
       <a href="{{ url_for('start') }}" class="btn btn-lg btn-hero-start">
-        지금 시작하기 →
+        새로운 디자인 시작하기 →
       </a>
     </div>
   </section>
