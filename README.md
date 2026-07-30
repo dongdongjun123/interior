@@ -6,12 +6,10 @@
 interior/
 ├── frontend/      # 화면 (Jinja2 템플릿 + static css/js) — Flask가 렌더링
 ├── backend/       # Flask 서버 (app.py = API + 화면 + 세션 한 곳에)
-├── model1/        # ① 프롬프트 → 무드 사진 추천 (CLIP 코사인 유사도)
-├── model2/        # ② 사진 → 2D 평면도 (Gemini + 규칙 렌더러)
-├── shared/        # model1·model2 공용 설정 (config)
-├── room-object-detection/  # Florence-2 가구 탐지 (별도 환경 — transformers 4.49 고정)
-├── orchestration/ # 사진 → Florence 탐지 → Gemini 근거주입 → SVG 오케스트레이터
-├── prompts/       # 모든 Gemini 프롬프트(*.txt) — model2가 로드
+├── model1/        # 사진 → 2D 평면도 (Gemini) — 역할별 모듈로 분리
+├── model2/        # 무드 분석 → 특징 추출 (Gemini, CLI)
+├── mood_pipeline/ # model1·model2 공용 패키지 (config, gemini_extract, search, rule_based_svg …)
+├── prompts/       # 모든 Gemini 프롬프트(*.txt) — model1·mood_pipeline 공유
 ├── images/ data/ output/   # 데이터·산출물
 ├── requirements.txt        # 통합 의존성 (가상환경 하나)
 └── .env                    # API 키 (.env.example 복사해서 작성)
@@ -64,28 +62,23 @@ python app.py
 
 ## 4. 모델 스크립트 (CLI)
 
-웹앱과 별개로 모델을 직접 돌릴 때. **반드시 루트에서** 실행 (model1/model2/shared import 때문).
+웹앱과 별개로 모델을 직접 돌릴 때. **반드시 루트에서** 실행 (mood_pipeline import 때문).
 가상환경은 위에서 만든 것을 activate한 상태로.
 
 ```powershell
-# 사진 → 평면도 (구 경로 python model2\interior_to_floorplan.py 도 그대로 동작)
-python -m model2.cli --help
+# 사진 → 평면도 (구 경로 python model1\interior_to_floorplan.py 도 그대로 동작)
+python -m model1.cli --help
 
 # 무드 특징 추출 + UMAP
-python model1/run_gemini_features.py --help
+python model2/run_gemini_features.py --help
 
-# 사진 → Florence 탐지 → Gemini 근거주입 → SVG (오케스트레이터)
-python orchestration/run_floorplan.py <사진경로>
 ```
-
-> **Florence 탐지는 선택**입니다. `.env`의 `ROOMDET_PYTHON`을 비우면 Florence 없이 Gemini만 돕니다.
-> 켜려면 `room-object-detection/README.md`대로 별도 conda 환경(`roomdet`, transformers 4.49)을 만들고
-> 그 python 경로를 `ROOMDET_PYTHON`에 넣으세요. GPU(RTX 등) 권장.
 
 ---
 
 ## 참고
 
-- 무드 검색(`model1/search.py`, 프롬프트→유사 이미지 CLIP 검색)은 구현되어 backend `/mood-search`에서 사용 중.
+- 무드 검색(`mood_pipeline/search.py`, 프롬프트→유사 이미지 CLIP 검색)은 구현되어 backend `/mood-search`에서 사용 중.
+- `model2/notebooks/06_gemini_features.ipynb` 는 실험용. 일부 셀은 미구현 모듈(`prompt_floorplan.py`)에 의존해 동작하지 않음.
 - 실행 규칙 요약: **웹 서버는 `backend/`에서, 모델 스크립트는 루트에서.**
 - 자세한 재구조화 기록은 [REPO_STRUCTURE.md](REPO_STRUCTURE.md) 참고.

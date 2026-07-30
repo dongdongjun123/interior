@@ -1,4 +1,10 @@
 (function () {
+  // 동일 문서에서 스크립트가 중복 실행되더라도 Gemini 요청은 한 번만 보낸다.
+  if (window.__floorplanRequestStarted) {
+    return;
+  }
+  window.__floorplanRequestStarted = true;
+
   const currentScript = document.currentScript;
 
   const nextUrl = currentScript
@@ -55,11 +61,11 @@
 
     /*
      * 서버가 세부 진행 상태를 실시간으로 알려주지는 않지만, 실제 파이프라인은
-     * (layout 추출 → 자기교정 → SVG 렌더) 순으로 앞으로만 진행한다.
+     * (layout 추출 → SVG 렌더) 순으로 앞으로만 진행한다.
      * 그래서 체크리스트도 되돌아가지 않고 앞으로만 나아가다가,
      * 마지막 단계(평면도 생성)에서 fetch 완료를 기다린다.
      * - 지나온 단계는 ✓(done)로 확정, 현재 단계만 ●(active).
-     * - Gemini 호출 2회가 대부분의 시간을 차지하므로 앞 단계는 여유 있게 배분.
+     * - Gemini 호출이 대부분의 시간을 차지하므로 분석 단계는 여유 있게 배분.
      */
     const lastStep = checklistItems.length - 1;
     // 단계별 머무는 시간(ms): 업로드 확인은 짧게, 분석 단계는 Gemini 호출을 감안해 길게.

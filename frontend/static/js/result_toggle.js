@@ -9,8 +9,6 @@
     if (planBox && markup) {
       planBox.innerHTML = markup;
       if (window.initFloorplanDrag) window.initFloorplanDrag();
-      if (window.initFloorplanTooltip) window.initFloorplanTooltip();
-      if (window.initFloorplanRotate) window.initFloorplanRotate();
     }
   }
 

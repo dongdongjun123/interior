@@ -5,6 +5,8 @@
 
 # --- Web (backend / frontend) ---
 Flask>=3.0
+Flask-SQLAlchemy>=3.1
+Flask-Login>=0.6
 Pillow>=10.0
 requests
 python-dotenv

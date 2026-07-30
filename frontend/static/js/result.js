@@ -1,14 +1,62 @@
-// result.js — 저장 / 공유 / 이미지 확대 (mock)
+// result.js — 저장 / 공유
 (function () {
   const saveBtn = document.getElementById("saveBtn");
   const shareBtn = document.getElementById("shareBtn");
-  const resultImage = document.querySelector(".result-image");
 
   if (saveBtn) {
-    saveBtn.addEventListener("click", () => {
-      saveBtn.textContent = "저장됨 ✓";
-      setTimeout(() => (saveBtn.textContent = "저장"), 1500);
-      // 실제 서비스에서는 여기서 /save 같은 API를 호출해 '내 디자인'에 저장
+    saveBtn.addEventListener("click", async () => {
+      const originalText = saveBtn.textContent;
+      saveBtn.disabled = true;
+      saveBtn.textContent = "저장 중...";
+
+      try {
+        const modifiedSvg = document.querySelector("#modifiedPlanBox svg");
+        let svgMarkup = "";
+        if (modifiedSvg) {
+          const snapshot = modifiedSvg.cloneNode(true);
+          snapshot.removeAttribute("data-drag-bound");
+          snapshot.removeAttribute("data-edit-enabled");
+          snapshot.classList.remove("floorplan-dragging", "floorplan-edit-mode");
+          snapshot.querySelectorAll("[data-draggable]").forEach((item) => {
+            item.style.opacity = "1";
+          });
+          svgMarkup = snapshot.outerHTML;
+        }
+
+        const response = await fetch(saveBtn.dataset.saveUrl, {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            modified_svg: svgMarkup,
+          }),
+        });
+
+        if (response.status === 401) {
+          const loginUrl = saveBtn.dataset.loginUrl || "/login";
+          window.location.href =
+            loginUrl + "?next=" + encodeURIComponent(window.location.pathname);
+          return;
+        }
+
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "save_failed");
+        }
+
+        saveBtn.textContent = "저장됨 ✓";
+      } catch (error) {
+        console.error(error);
+        saveBtn.textContent = "저장 실패";
+      } finally {
+        window.setTimeout(() => {
+          saveBtn.textContent = originalText;
+          saveBtn.disabled = false;
+        }, 1500);
+      }
     });
   }
 
@@ -25,10 +73,4 @@
     });
   }
 
-  if (resultImage && resultImage.tagName === "IMG") {
-    resultImage.style.cursor = "zoom-in";
-    resultImage.addEventListener("click", () => {
-      resultImage.classList.toggle("result-image-zoomed");
-    });
-  }
 })();

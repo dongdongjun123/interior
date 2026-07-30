@@ -63,9 +63,10 @@
           title: product.title,
           link: product.link,
           image: product.image,
-          // 제목에 치수가 없을 때 서버가 카테고리로 크기를 추정한다.
-          category3: product.category3,
-          category4: product.category4,
+          price: product.price,
+          shop: product.shop,
+          brand: product.brand,
+          maker: product.maker,
         }),
       });
       const data = await res.json();
@@ -74,8 +75,6 @@
       if (planBox && data.svg_markup) {
         planBox.innerHTML = data.svg_markup;
         if (window.initFloorplanDrag) window.initFloorplanDrag();
-        if (window.initFloorplanTooltip) window.initFloorplanTooltip();
-        if (window.initFloorplanRotate) window.initFloorplanRotate();
       }
       btn.className = "btn btn-sm btn-success mt-auto add-btn";
       btn.textContent = "추가됨 ✓";

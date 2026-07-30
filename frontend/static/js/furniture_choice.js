@@ -20,12 +20,16 @@
   const removeCount =
     document.getElementById("removeCount");
 
+  const replaceCount =
+    document.getElementById("replaceCount");
+
   const purchaseCount =
     document.getElementById("purchaseCount");
 
   function updateDecisionSummary() {
     let keep = 0;
     let remove = 0;
+    let replace = 0;
 
     choiceCards.forEach((card) => {
       const selected = card.querySelector(
@@ -34,7 +38,8 @@
 
       card.classList.remove(
         "is-keep",
-        "is-remove"
+        "is-remove",
+        "is-replace"
       );
 
       if (!selected) {
@@ -44,6 +49,19 @@
       if (selected.value === "remove") {
         remove += 1;
         card.classList.add("is-remove");
+      } else if (selected.value === "replace") {
+        replace += 1;
+        card.classList.add("is-replace");
+
+        const matchingPurchase = document.querySelector(
+          'input[name="purchase_items"][value="' +
+          selected.dataset.itemType +
+          '"]'
+        );
+
+        if (matchingPurchase) {
+          matchingPurchase.checked = true;
+        }
       } else {
         keep += 1;
         card.classList.add("is-keep");
@@ -57,6 +75,12 @@
     if (removeCount) {
       removeCount.textContent = remove;
     }
+
+    if (replaceCount) {
+      replaceCount.textContent = replace;
+    }
+
+    updatePurchaseSummary();
   }
 
   function updatePurchaseSummary() {

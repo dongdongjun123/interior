@@ -1,4 +1,4 @@
-// STEP 2: 방 사진과 크기 정보 업로드
+// STEP 2: 방 사진 업로드
 (function () {
   const dropZone = document.getElementById("dropZone");
   const fileInput = document.getElementById("fileInput");
@@ -10,10 +10,6 @@
   const removeFileBtn = document.getElementById("removeFileBtn");
   const nextBtn = document.getElementById("nextBtn");
   const errorEl = document.getElementById("uploadError");
-
-  const roomWidthInput = document.getElementById("roomWidth");
-  const roomDepthInput = document.getElementById("roomDepth");
-  const ceilingHeightInput = document.getElementById("ceilingHeight");
 
   const scriptTag = document.currentScript;
   const uploadUrl = scriptTag.dataset.uploadUrl;
@@ -35,48 +31,6 @@
 
   function formatSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + "MB";
-  }
-
-  function getDimensions() {
-    return {
-      roomWidth: Number.parseFloat(roomWidthInput.value),
-      roomDepth: Number.parseFloat(roomDepthInput.value),
-      ceilingHeight: Number.parseFloat(ceilingHeightInput.value),
-    };
-  }
-
-  function getDimensionState() {
-    const rawValues = [
-      roomWidthInput.value.trim(),
-      roomDepthInput.value.trim(),
-      ceilingHeightInput.value.trim(),
-    ];
-
-    const allEmpty = rawValues.every((value) => value === "");
-
-    if (allEmpty) {
-      return {
-        valid: true,
-        hasDimensions: false,
-      };
-    }
-
-    const allFilled = rawValues.every((value) => value !== "");
-    const dimensions = getDimensions();
-
-    const allValid =
-      allFilled &&
-      Number.isFinite(dimensions.roomWidth) &&
-      dimensions.roomWidth >= 0.1 &&
-      Number.isFinite(dimensions.roomDepth) &&
-      dimensions.roomDepth >= 0.1 &&
-      Number.isFinite(dimensions.ceilingHeight) &&
-      dimensions.ceilingHeight >= 0.1;
-
-    return {
-      valid: allValid,
-      hasDimensions: allValid,
-    };
   }
 
   function updateNextButton() {
@@ -149,27 +103,11 @@
     updateNextButton();
   });
 
-  [roomWidthInput, roomDepthInput, ceilingHeightInput].forEach((input) => {
-    input.addEventListener("input", () => {
-      clearError();
-      updateNextButton();
-    });
-  });
-
   nextBtn.addEventListener("click", async () => {
     if (!selectedFile) {
       showError("방 사진을 선택해 주세요.");
       return;
     }
-
-    const dimensionState = getDimensionState();
-
-    if (!dimensionState.valid) {
-      showError("방 크기는 세 항목을 모두 입력하거나 모두 비워 주세요.");
-      return;
-    }
-
-    const { roomWidth, roomDepth, ceilingHeight } = getDimensions();
 
     nextBtn.disabled = true;
     nextBtn.textContent = "업로드 중...";
@@ -178,11 +116,6 @@
       const formData = new FormData();
 
       formData.append("photo", selectedFile);
-      if (dimensionState.hasDimensions) {
-        formData.append("room_width", roomWidth.toString());
-        formData.append("room_depth", roomDepth.toString());
-        formData.append("ceiling_height", ceilingHeight.toString());
-      }
 
       const response = await fetch(uploadUrl, {
         method: "POST",

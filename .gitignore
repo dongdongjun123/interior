@@ -6,9 +6,13 @@ venv/
 venv-linux/
 venv-win/
 .ipynb_checkpoints/
+.vscode/
+local_backup/
+model2/output/
 
 # 환경변수
 .env
+backend/app.db
 
 # 생성 산출물 (재생성 가능)
 output/floorplans/*
@@ -29,15 +33,11 @@ frontend/static/generated/*
 !frontend/static/uploads/.gitkeep
 !frontend/static/generated/.gitkeep
 
-# 무드 원본 데이터셋 — 이미 커밋된 스냅샷 고정.
-# 로컬에서 사진을 추가/삭제해도 git이 자동으로 추적하지 않는다
-# (기존에 커밋된 파일은 별도 git rm/add 전까진 그대로 유지됨).
+# 무드 원본 데이터셋 (52MB, 394장) — 대표 샘플 3장만 커밋
 images/final/*
+!images/final/003e0ad2bc74.jpg
+!images/final/017ccbeb4150.jpg
+!images/final/01a3a801d075.JPG
 
 # YOLO 가중치 (최초 실행 시 자동 다운로드)
 *.pt
-
-# Freepik 원본 벡터(재배포 금지 — 심볼만 추출해 사용)
-loft-plan.zip
-*.ai
-*.eps
