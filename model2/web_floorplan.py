@@ -23,7 +23,7 @@ from .topdown_experiment.run import analyze_room
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ANALYSIS_MODEL = "gemini-3.6-flash"
+DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash"
 
 PRODUCT_VISUAL_PROMPT = """
 Analyze only the furniture product in this shopping representative image.
