@@ -6,6 +6,9 @@ venv/
 venv-linux/
 venv-win/
 .ipynb_checkpoints/
+.vscode/
+local_backup/
+model2/output/
 
 # 환경변수
 .env
