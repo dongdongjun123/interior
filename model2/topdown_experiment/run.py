@@ -37,7 +37,7 @@ except ImportError:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "model2" / "output" / "topdown_experiment"
-DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash"
+DEFAULT_ANALYSIS_MODEL = "gemini-3.6-flash"
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 
 ANALYSIS_PROMPT = """
